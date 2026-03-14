@@ -1,0 +1,83 @@
+# OS / Editor junk
+**/.DS_Store
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# PHP / Laravel
+**/public/css
+**/public/js
+/public/storage
+**/storage/*.key
+**/vendor
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+public/mix-manifest.json
+
+# Python
+__pycache__/
+*.pyc
+*.cpython-36.pyc
+migrations/
+
+# Java / ANTLR
+*.class
+*.interp
+*.tokens
+.antlr/
+
+# Build outputs
+dist/
+build/
+out/
+coverage/
+
+# Package managers
+composer.lock
+package-lock.json
+yarn.lock
+
+# Local scratch / caches
+tmp/
+.cache/
+.dockerignore-local
+temp/
+output*.txt
+
+# Kubernetes
+charts/**/.tgz
+
+# Locally retrieved app chart
+app-chart
+app-chart/**
+
+# Secrets
+**/secrets*
+
+# Logs
+*.log
+logs/
+dev.log
+celery.log
+
+# Miscellaneous
+tests/
+database/
+dump.rdb
+src/git_ignored_folder
+src/tests/assets
