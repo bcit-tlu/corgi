@@ -178,7 +178,7 @@ return [
         LdapRecord\Laravel\LdapServiceProvider::class,
         LdapRecord\Laravel\LdapAuthServiceProvider::class,
 
-        Intervention\Image\ImageServiceProvider::class,
+        Intervention\Image\Laravel\ServiceProvider::class,
 
     ],
 
@@ -212,7 +212,7 @@ return [
         'File' => Illuminate\Support\Facades\File::class,
         'Gate' => Illuminate\Support\Facades\Gate::class,
         'Hash' => Illuminate\Support\Facades\Hash::class,
-        'InterventionImage' => Intervention\Image\Facades\Image::class,
+        'InterventionImage' => Intervention\Image\Laravel\Facades\Image::class,
         'Lang' => Illuminate\Support\Facades\Lang::class,
         'Log' => Illuminate\Support\Facades\Log::class,
         'Mail' => Illuminate\Support\Facades\Mail::class,

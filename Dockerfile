@@ -85,6 +85,10 @@ COPY --from=frontend-builder /corgi/public ./public
 RUN composer dump-autoload --optimize \
  && mkdir -p ./storage/app/public/images \
  && mkdir -p ./storage/app/public/temp \
+ && mkdir -p ./storage/logs \
+ && mkdir -p ./storage/framework/cache \
+ && mkdir -p ./storage/framework/sessions \
+ && mkdir -p ./storage/framework/views \
  && chmod -R 755 ./storage \
  && chmod -R 775 ./storage/logs ./storage/framework ./storage/app/public \
  && chown -R www-data:www-data \
