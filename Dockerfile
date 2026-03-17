@@ -22,16 +22,21 @@ RUN npm run production
 ##### PHP release ##############################################################
 FROM php:8.4-fpm AS release
 
-# Fail fast and keep the shell in debug mode for RUN blocks
-# SHELL ["/bin/sh", "-euxo", "pipefail", "-c"]
+LABEL maintainer="bcit-tlu" \
+      description="CORGI application – PHP 8.4 / Laravel 11"
+
+# Fail fast on errors in RUN blocks
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 ENV LANG=en_CA.UTF-8 \
     LANGUAGE=en_CA:en \
-    LC_ALL=en_CA.UTF-8
+    LC_ALL=en_CA.UTF-8 \
+    COMPOSER_ALLOW_SUPERUSER=1
 
 WORKDIR /corgi
 
-# System packages and composer
+# ── System packages, locales, timezone, Composer ─────────────────────────────
+# Kept as one layer so the apt cache is cleaned in the same step.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       mariadb-client \
@@ -46,22 +51,20 @@ RUN apt-get update \
       libpng-dev \
       libwebp-dev \
       curl \
- && rm -rf /var/lib/apt/lists/*
-
-RUN curl -sSL https://getcomposer.org/installer \
-    | php -- --install-dir=/usr/local/bin --filename=composer
-
-# Locales and timezone
-RUN ln -fs /usr/share/zoneinfo/America/Vancouver /etc/localtime \
+ && ln -fs /usr/share/zoneinfo/America/Vancouver /etc/localtime \
  && dpkg-reconfigure --frontend noninteractive tzdata \
  && sed -i 's/# en_CA.UTF-8 UTF-8/en_CA.UTF-8 UTF-8/' /etc/locale.gen \
- && locale-gen
+ && locale-gen \
+ && rm -rf /var/lib/apt/lists/*
 
-# PHP extensions
+# Install Composer from the official multi-stage image (pinned major version)
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+# ── PHP extensions ───────────────────────────────────────────────────────────
+# Combined into a single layer to reduce image size.
 RUN pecl install vips \
- && docker-php-ext-enable vips
-
-RUN docker-php-ext-configure gd \
+ && docker-php-ext-enable vips \
+ && docker-php-ext-configure gd \
       --with-freetype \
       --with-webp \
       --with-jpeg \
@@ -71,20 +74,22 @@ RUN docker-php-ext-configure gd \
       mysqli \
       pdo_mysql \
       ldap \
-      gd
+      gd \
+ && docker-php-source delete
 
-# Composer dependencies (copy lock file if present for cache hits)
-COPY src/composer.* ./
-RUN composer install --no-scripts --no-autoloader --ansi --no-interaction \
- && composer clear-cache
+# ── Composer dependencies ────────────────────────────────────────────────────
+# Copy manifests first so this layer is cached when only app code changes.
+COPY --link src/composer.json src/composer.lock ./
+RUN --mount=type=cache,target=/root/.composer/cache \
+    composer install --no-scripts --no-autoloader --no-interaction --ansi
 
-# Application files
-COPY src ./
-COPY --from=frontend-builder /corgi/public ./public
+# ── Application files ────────────────────────────────────────────────────────
+COPY --link src ./
+COPY --link --from=frontend-builder /corgi/public ./public
 
-RUN composer dump-autoload --optimize \
+RUN composer dump-autoload --optimize --no-interaction \
  && mkdir -p ./storage/app/public/images \
- && mkdir -p ./storage/app/public/temp \
+              ./storage/app/public/temp \
  && chmod -R 755 ./storage \
  && chmod -R 775 ./storage/logs ./storage/framework ./storage/app/public \
  && chown -R www-data:www-data \
@@ -92,7 +97,7 @@ RUN composer dump-autoload --optimize \
       ./storage/framework \
       ./storage/app/public
 
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --link docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 9000
