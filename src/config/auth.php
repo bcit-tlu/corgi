@@ -82,7 +82,7 @@ return [
         // ],
         'users' => [
             'driver' => 'ldap',
-            'model' => App\User::class,
+            'model' => App\Ldap\User::class,
             'rules' => [
                 App\Rules\OnlyManagersAndAccountingRule::class,
             ],
