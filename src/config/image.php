@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'driver' => "gd",
+    'driver' => \Intervention\Image\Drivers\Gd\Driver::class,
     'generate_s3_link_url_root' => "/clouds",
 
 ];
