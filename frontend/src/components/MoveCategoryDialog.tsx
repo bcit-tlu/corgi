@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
@@ -25,11 +25,9 @@ export default function MoveCategoryDialog({
 }: MoveCategoryDialogProps) {
   const [newParentId, setNewParentId] = useState<number | null>(null)
 
-  useEffect(() => {
-    if (open) {
-      setNewParentId(category?.parentId ?? null)
-    }
-  }, [open, category])
+  const handleEnter = useCallback(() => {
+    setNewParentId(category?.parentId ?? null)
+  }, [category])
 
   const handleMove = () => {
     if (!category) return
@@ -37,7 +35,7 @@ export default function MoveCategoryDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth TransitionProps={{ onEnter: handleEnter }}>
       <DialogTitle>Move Category</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
         {category && (
