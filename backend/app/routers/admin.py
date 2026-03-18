@@ -154,6 +154,8 @@ async def import_database(
             program = Program(
                 id=p["id"],
                 name=p["name"],
+                created_at=_parse_dt(p.get("created_at")),
+                updated_at=_parse_dt(p.get("updated_at")),
             )
             db.add(program)
         await db.flush()
@@ -169,6 +171,8 @@ async def import_database(
                 program_id=u.get("program_id"),
                 last_access=_parse_dt(u.get("last_access")),
                 metadata_=u.get("metadata", {}),
+                created_at=_parse_dt(u.get("created_at")),
+                updated_at=_parse_dt(u.get("updated_at")),
             )
             db.add(user)
 
@@ -189,6 +193,8 @@ async def import_database(
                         program=c.get("program"),
                         status=c.get("status", "active"),
                         metadata_=c.get("metadata", {}),
+                        created_at=_parse_dt(c.get("created_at")),
+                        updated_at=_parse_dt(c.get("updated_at")),
                     )
                     db.add(cat)
                     inserted_ids.add(c["id"])
@@ -216,6 +222,8 @@ async def import_database(
                 program=i.get("program"),
                 status=i.get("status", "active"),
                 metadata_=i.get("metadata", {}),
+                created_at=_parse_dt(i.get("created_at")),
+                updated_at=_parse_dt(i.get("updated_at")),
             )
             db.add(img)
 
