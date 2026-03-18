@@ -3,7 +3,8 @@ FROM python:3.13-slim AS base
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libvips-dev \
+    && apt-get install -y --no-install-recommends \
+       libvips-dev pkg-config gcc \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir poetry \
