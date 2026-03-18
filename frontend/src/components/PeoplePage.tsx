@@ -193,45 +193,37 @@ export default function PeoplePage() {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ mb: 3 }}>
-        People
-      </Typography>
-
-      {/* Toolbar */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          mb: 2,
-          flexWrap: 'wrap',
-        }}
-      >
-        <Button
-          variant="contained"
-          startIcon={<PersonAddIcon />}
-          onClick={handleOpenAdd}
-        >
-          Add Person
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<GroupWorkIcon />}
-          onClick={() => setProgramModalOpen(true)}
-        >
-          Add / Edit Program
-        </Button>
-        {selected.size > 0 && (
-          <Link
-            component="button"
-            variant="body2"
-            underline="always"
-            onClick={() => setBulkEditOpen(true)}
-            sx={{ cursor: 'pointer' }}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1 }}>
+        <Typography variant="h5">
+          People
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2, flexShrink: 0, alignItems: 'center' }}>
+          {selected.size > 0 && (
+            <Link
+              component="button"
+              variant="body2"
+              underline="always"
+              onClick={() => setBulkEditOpen(true)}
+              sx={{ cursor: 'pointer' }}
+            >
+              bulk edit ({selected.size} selected)
+            </Link>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<PersonAddIcon />}
+            onClick={handleOpenAdd}
           >
-            bulk edit ({selected.size} selected)
-          </Link>
-        )}
+            Add Person
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<GroupWorkIcon />}
+            onClick={() => setProgramModalOpen(true)}
+          >
+            Add / Edit Program
+          </Button>
+        </Box>
       </Box>
 
       {/* User table */}
@@ -240,7 +232,7 @@ export default function PeoplePage() {
           No people found.
         </Typography>
       ) : (
-        <TableContainer component={Paper} variant="outlined">
+        <TableContainer component={Paper} variant="outlined" sx={{ bgcolor: '#fff' }}>
           <Table size="small">
             <TableHead>
               <TableRow>

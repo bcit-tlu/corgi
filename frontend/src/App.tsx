@@ -16,6 +16,7 @@ import MuiBreadcrumbs from '@mui/material/Breadcrumbs'
 import Link from '@mui/material/Link'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder'
 import HomeIcon from '@mui/icons-material/Home'
 import ImageViewer from './components/ImageViewer'
@@ -28,6 +29,7 @@ import AddEditPersonModal from './components/AddEditPersonModal'
 import ManagePage from './components/ManagePage'
 import PeoplePage from './components/PeoplePage'
 import LoginScreen from './components/LoginScreen'
+import UploadImageModal from './components/UploadImageModal'
 import { useAuth } from './useAuth'
 import {
   fetchCategoryTree,
@@ -80,6 +82,7 @@ export default function App() {
   const [path, setPath] = useState<Category[]>([])
   const [selectedImage, setSelectedImage] = useState<ImageItem | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   const [uncategorizedImages, setUncategorizedImages] = useState<ImageItem[]>([])
 
@@ -263,7 +266,15 @@ export default function App() {
             TabIndicatorProps={{ style: { backgroundColor: 'white' } }}
             sx={{ flexGrow: 1 }}
           >
-            <Tab label="Home" value="browse" />
+            <Tab
+              label="Home"
+              value="browse"
+              onClick={() => {
+                setPage('browse')
+                setSelectedImage(null)
+                setPath([])
+              }}
+            />
             {canEditContent && <Tab label="Images" value="manage" />}
             {canManageUsers && <Tab label="People" value="people" />}
             {canManageUsers && <Tab label="Admin" value="admin" />}
@@ -353,7 +364,14 @@ export default function App() {
       {announcement && <AnnouncementBanner message={announcement} />}
 
       {/* Main content */}
-      <Box component="main" sx={{ flexGrow: 1, py: 3 }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          py: 3,
+          bgcolor: page === 'people' || page === 'admin' ? '#d1cdcd' : undefined,
+        }}
+      >
         <Container maxWidth="lg">
           {page === 'admin' && canManageUsers ? (
             <AdminPage onAnnouncementChange={loadAnnouncement} />
@@ -383,26 +401,82 @@ export default function App() {
                 loadCategories()
                 loadUncategorizedImages()
               }}
+              onNewCategory={() => setDialogOpen(true)}
             />
           ) : selectedImage ? (
             /* ---- Viewer mode ---- */
             <>
+              {/* Breadcrumbs + action buttons */}
               <Box
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   mb: 2,
+                  flexWrap: 'wrap',
+                  gap: 1,
                 }}
               >
-                <Typography variant="h5">{selectedImage.label}</Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setSelectedImage(null)}
-                >
-                  Back
-                </Button>
+                <MuiBreadcrumbs aria-label="image breadcrumb">
+                  <Link
+                    component="button"
+                    variant="body2"
+                    underline="hover"
+                    color="inherit"
+                    onClick={() => {
+                      setSelectedImage(null)
+                      navigateToDepth(0)
+                    }}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <HomeIcon fontSize="small" />
+                    Home
+                  </Link>
+                  {path.map((cat, i) => (
+                    <Link
+                      key={cat.id}
+                      component="button"
+                      variant="body2"
+                      underline="hover"
+                      color="inherit"
+                      onClick={() => {
+                        setSelectedImage(null)
+                        navigateToDepth(i + 1)
+                      }}
+                      sx={{ cursor: 'pointer' }}
+                    >
+                      {cat.label}
+                    </Link>
+                  ))}
+                  <Typography variant="body2" color="text.primary">
+                    {selectedImage.label}
+                  </Typography>
+                </MuiBreadcrumbs>
+                {canEditContent && (
+                  <Box sx={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                    {currentDepth < MAX_DEPTH && (
+                      <Button
+                        variant="contained"
+                        startIcon={<CreateNewFolderIcon />}
+                        onClick={() => setDialogOpen(true)}
+                      >
+                        New Category
+                      </Button>
+                    )}
+                    <Button
+                      variant="outlined"
+                      startIcon={<AddPhotoAlternateIcon />}
+                      onClick={() => setUploadOpen(true)}
+                    >
+                      Upload Image
+                    </Button>
+                  </Box>
+                )}
               </Box>
 
               <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
@@ -420,8 +494,17 @@ export default function App() {
           ) : (
             /* ---- Browse mode ---- */
             <>
-              {/* Breadcrumbs */}
-              <Box sx={{ mb: 2 }}>
+              {/* Breadcrumbs + action buttons */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  mb: 2,
+                  flexWrap: 'wrap',
+                  gap: 1,
+                }}
+              >
                 <MuiBreadcrumbs aria-label="category breadcrumb">
                   <Link
                     component="button"
@@ -455,21 +538,27 @@ export default function App() {
                     </Link>
                   ))}
                 </MuiBreadcrumbs>
+                {canEditContent && (
+                  <Box sx={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                    {currentDepth < MAX_DEPTH && (
+                      <Button
+                        variant="contained"
+                        startIcon={<CreateNewFolderIcon />}
+                        onClick={() => setDialogOpen(true)}
+                      >
+                        New Category
+                      </Button>
+                    )}
+                    <Button
+                      variant="outlined"
+                      startIcon={<AddPhotoAlternateIcon />}
+                      onClick={() => setUploadOpen(true)}
+                    >
+                      Upload Image
+                    </Button>
+                  </Box>
+                )}
               </Box>
-
-              {/* Add-category button (admin + instructor only) */}
-              {canEditContent && currentDepth < MAX_DEPTH && (
-                <Box sx={{ mb: 2 }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<CreateNewFolderIcon />}
-                    onClick={() => setDialogOpen(true)}
-                  >
-                    New Category
-                  </Button>
-                </Box>
-              )}
 
               {/* Tile grid */}
               <Box
@@ -560,6 +649,17 @@ export default function App() {
         onMove={handleMoveCategory}
         category={movingCategory}
         categories={categories}
+      />
+
+      {/* Upload image modal */}
+      <UploadImageModal
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onUploaded={() => {
+          loadCategories()
+          loadUncategorizedImages()
+        }}
+        categoryId={path.length > 0 ? path[path.length - 1].id : null}
       />
 
       {/* Self-edit profile modal */}

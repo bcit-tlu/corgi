@@ -86,6 +86,9 @@ class SourceImage(Base):
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
+    copyright: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    origin: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    program: Mapped[str | None] = mapped_column(String(255), nullable=True)
     image_id: Mapped[int | None] = mapped_column(
         ForeignKey("images.id", ondelete="SET NULL"), nullable=True
     )

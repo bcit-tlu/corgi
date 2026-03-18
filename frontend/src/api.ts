@@ -302,6 +302,9 @@ export interface ApiSourceImage {
   error_message: string | null
   label: string | null
   category_id: number | null
+  copyright: string | null
+  origin: string | null
+  program: string | null
   image_id: number | null
   created_at: string
   updated_at: string
@@ -311,11 +314,17 @@ export async function uploadSourceImage(
   file: File,
   label?: string,
   categoryId?: number | null,
+  copyright?: string,
+  origin?: string,
+  program?: string,
 ): Promise<ApiSourceImage> {
   const form = new FormData()
   form.append('file', file)
   if (label) form.append('label', label)
   if (categoryId != null) form.append('category_id', String(categoryId))
+  if (copyright) form.append('copyright', copyright)
+  if (origin) form.append('origin', origin)
+  if (program) form.append('program', program)
   const res = await fetch(`${BASE}/api/source-images/upload`, {
     method: 'POST',
     headers: authHeaders(),

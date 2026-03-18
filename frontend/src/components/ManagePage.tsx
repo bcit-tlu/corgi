@@ -17,17 +17,16 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
+import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder'
 import DeleteIcon from '@mui/icons-material/Delete'
 import InfoIcon from '@mui/icons-material/Info'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import { fetchImages, updateImage, deleteImage } from '../api'
 import type { ApiImage } from '../api'
 import type { Category } from '../types'
 import EditImageModal from './EditImageModal'
 import type { ImageFormData } from './EditImageModal'
-import ReplaceImageModal from './ReplaceImageModal'
 import UploadImageModal from './UploadImageModal'
 
 interface CategoryPathSegment {
@@ -99,9 +98,10 @@ interface ManagePageProps {
   onViewImage?: (image: ApiImage) => void
   onNavigateCategory?: (categoryPath: Category[]) => void
   onCategoriesChanged?: () => void
+  onNewCategory?: () => void
 }
 
-export default function ManagePage({ categories, onViewImage, onNavigateCategory, onCategoriesChanged }: ManagePageProps) {
+export default function ManagePage({ categories, onViewImage, onNavigateCategory, onCategoriesChanged, onNewCategory }: ManagePageProps) {
   const [images, setImages] = useState<ApiImage[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -110,10 +110,6 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false)
   const [editingImage, setEditingImage] = useState<ApiImage | null>(null)
-
-  // Replace modal state
-  const [replaceOpen, setReplaceOpen] = useState(false)
-  const [replacingImage, setReplacingImage] = useState<ApiImage | null>(null)
 
   // Upload modal state
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -188,14 +184,6 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
     handleMenuClose()
   }
 
-  const handleMenuReplace = () => {
-    if (menuImage) {
-      setReplacingImage(menuImage)
-      setReplaceOpen(true)
-    }
-    handleMenuClose()
-  }
-
   const handleMenuDetails = () => {
     if (menuImage) {
       setEditingImage(menuImage)
@@ -225,13 +213,24 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
         <Typography variant="h5">
           Images
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddPhotoAlternateIcon />}
-          onClick={() => setUploadOpen(true)}
-        >
-          Upload Image
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+          {onNewCategory && (
+            <Button
+              variant="contained"
+              startIcon={<CreateNewFolderIcon />}
+              onClick={onNewCategory}
+            >
+              New Category
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            startIcon={<AddPhotoAlternateIcon />}
+            onClick={() => setUploadOpen(true)}
+          >
+            Upload Image
+          </Button>
+        </Box>
       </Box>
 
       {images.length === 0 ? (
@@ -309,12 +308,6 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
           </ListItemIcon>
           <ListItemText>View</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleMenuReplace}>
-          <ListItemIcon>
-            <SwapHorizIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Replace</ListItemText>
-        </MenuItem>
         <MenuItem onClick={handleMenuDetails}>
           <ListItemIcon>
             <InfoIcon fontSize="small" />
@@ -342,16 +335,6 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
         }}
         image={editingImage}
         categories={categories}
-      />
-
-      {/* Replace image modal */}
-      <ReplaceImageModal
-        open={replaceOpen}
-        onClose={() => {
-          setReplaceOpen(false)
-          setReplacingImage(null)
-        }}
-        imageLabel={replacingImage?.label ?? ''}
       />
 
       {/* Upload image modal */}

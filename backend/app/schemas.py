@@ -123,6 +123,9 @@ class SourceImageOut(BaseModel):
     error_message: str | None = None
     label: str | None = None
     category_id: int | None = None
+    copyright: str | None = None
+    origin: str | None = None
+    program: str | None = None
     image_id: int | None = None
     created_at: datetime
     updated_at: datetime

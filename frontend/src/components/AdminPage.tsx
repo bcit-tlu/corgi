@@ -127,7 +127,7 @@ export default function AdminPage({ onAnnouncementChange }: AdminPageProps) {
 
       <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
         {/* Export card */}
-        <Card sx={{ minWidth: 300, maxWidth: 400, flex: '1 1 300px' }}>
+        <Card sx={{ minWidth: 300, maxWidth: 400, flex: '1 1 300px', bgcolor: '#fff' }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
               Export Database
@@ -148,7 +148,7 @@ export default function AdminPage({ onAnnouncementChange }: AdminPageProps) {
         </Card>
 
         {/* Import card */}
-        <Card sx={{ minWidth: 300, maxWidth: 400, flex: '1 1 300px' }}>
+        <Card sx={{ minWidth: 300, maxWidth: 400, flex: '1 1 300px', bgcolor: '#fff' }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
               Import Database
@@ -177,7 +177,7 @@ export default function AdminPage({ onAnnouncementChange }: AdminPageProps) {
           </CardContent>
         </Card>
         {/* Announcement card */}
-        <Card sx={{ minWidth: 300, maxWidth: 400, flex: '1 1 300px' }}>
+        <Card sx={{ minWidth: 300, maxWidth: 400, flex: '1 1 300px', bgcolor: '#fff' }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
               Announcement
@@ -200,6 +200,7 @@ export default function AdminPage({ onAnnouncementChange }: AdminPageProps) {
               variant="contained"
               startIcon={<CampaignIcon />}
               onClick={openAnnModal}
+              sx={{ bgcolor: 'grey.600', '&:hover': { bgcolor: 'grey.700' } }}
             >
               Manage
             </Button>

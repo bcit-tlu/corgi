@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
+import Link from '@mui/material/Link'
 import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import type { ApiImage } from '../api'
 import type { Category } from '../types'
 import CategoryPickerSelect from './CategoryPickerSelect'
@@ -39,6 +42,36 @@ function EditImageForm({
   const [origin, setOrigin] = useState(image?.origin ?? '')
   const [program, setProgram] = useState(image?.program ?? '')
   const [status, setStatus] = useState(image?.status ?? '')
+  const [file, setFile] = useState<File | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const dropped = e.dataTransfer.files[0]
+    if (dropped && dropped.type.startsWith('image/')) {
+      setFile(dropped)
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(false)
+  }, [])
+
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selected = e.target.files?.[0]
+      if (selected) {
+        setFile(selected)
+      }
+    },
+    [],
+  )
 
   const handleSave = () => {
     const trimmedLabel = label.trim()
@@ -55,10 +88,66 @@ function EditImageForm({
 
   return (
     <>
-      <DialogTitle>Image Details</DialogTitle>
+      <DialogTitle>Edit Details</DialogTitle>
       <DialogContent
         sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}
       >
+        {/* Replace image drop zone */}
+        <Box
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          sx={{
+            mt: 1,
+            border: '2px dashed',
+            borderColor: dragOver ? 'primary.main' : 'grey.400',
+            borderRadius: 2,
+            p: 3,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 120,
+            bgcolor: dragOver ? 'action.hover' : 'grey.50',
+            transition: 'all 0.2s',
+            cursor: 'pointer',
+          }}
+        >
+          <CloudUploadIcon
+            sx={{ fontSize: 36, color: 'grey.500', mb: 0.5 }}
+          />
+          {file ? (
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              {file.name}
+            </Typography>
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                Drag and drop to replace image
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 0.5 }}
+              >
+                or{' '}
+                <Link component="label" sx={{ cursor: 'pointer' }}>
+                  browse to upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={handleFileSelect}
+                  />
+                </Link>
+              </Typography>
+            </>
+          )}
+        </Box>
+        <Typography variant="caption" color="text.secondary">
+          Image replacement processing will be added in a future update.
+        </Typography>
+
         <TextField
           autoFocus
           label="Label"
@@ -67,7 +156,7 @@ function EditImageForm({
           value={label}
           onChange={(e) => setLabel(e.target.value)}
         />
-        <Box sx={{ mt: 1 }}>
+        <Box>
           <CategoryPickerSelect
             categories={categories}
             value={categoryId}
@@ -127,7 +216,7 @@ export default function EditImageModal({
   const formKey = image ? `edit-${image.id}` : 'closed'
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       {open && (
         <EditImageForm
           key={formKey}

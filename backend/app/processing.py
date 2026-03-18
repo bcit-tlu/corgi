@@ -71,6 +71,9 @@ async def process_source_image(source_image_id: int) -> None:
                 thumb=thumb_url,
                 tile_sources=tile_sources_url,
                 category_id=src.category_id,
+                copyright=src.copyright,
+                origin=src.origin,
+                program=src.program,
                 status="active",
                 metadata_={},
             )

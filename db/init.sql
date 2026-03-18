@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS source_images (
     error_message TEXT,
     label         VARCHAR(255),
     category_id   INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+    copyright     VARCHAR(500),
+    origin        VARCHAR(500),
+    program       VARCHAR(255),
     image_id      INTEGER REFERENCES images(id) ON DELETE SET NULL,
     created_at    TIMESTAMPTZ DEFAULT now(),
     updated_at    TIMESTAMPTZ DEFAULT now()

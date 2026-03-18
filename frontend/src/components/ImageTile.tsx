@@ -28,9 +28,16 @@ export default function ImageTile({ image, onClick }: ImageTileProps) {
           <Typography variant="subtitle1" noWrap>
             {image.label}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Click to view
-          </Typography>
+          {image.program && (
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {image.program}
+            </Typography>
+          )}
+          {image.copyright && (
+            <Typography variant="body2" color="text.secondary" noWrap>
+              &copy; {image.copyright}
+            </Typography>
+          )}
         </CardContent>
       </CardActionArea>
     </Card>
