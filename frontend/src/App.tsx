@@ -266,21 +266,22 @@ export default function App() {
                       {currentUser.program_name}
                     </Typography>
                   )}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                    <Link
-                      component="button"
-                      variant="body2"
-                      onClick={() => {
-                        setProfileOpen(false)
-                        // Load programs for the edit modal
-                        apiFetchPrograms()
-                          .then((p) => setPrograms(p.map((pg) => ({ id: pg.id, name: pg.name, created_at: pg.created_at, updated_at: pg.updated_at }))))
-                          .catch(() => {})
-                        setEditModalOpen(true)
-                      }}
-                    >
-                      Update
-                    </Link>
+                  <Box sx={{ display: 'flex', justifyContent: canManageUsers ? 'space-between' : 'flex-end', mt: 2 }}>
+                    {canManageUsers && (
+                      <Link
+                        component="button"
+                        variant="body2"
+                        onClick={() => {
+                          setProfileOpen(false)
+                          apiFetchPrograms()
+                            .then((p) => setPrograms(p.map((pg) => ({ id: pg.id, name: pg.name, created_at: pg.created_at, updated_at: pg.updated_at }))))
+                            .catch(() => {})
+                          setEditModalOpen(true)
+                        }}
+                      >
+                        Update
+                      </Link>
+                    )}
                     <Link
                       component="button"
                       variant="body2"
