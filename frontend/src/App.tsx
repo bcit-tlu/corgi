@@ -313,6 +313,7 @@ export default function App() {
             <PeoplePage />
           ) : page === 'manage' && canEditContent ? (
             <ManagePage
+              categories={categories}
               onViewImage={(img) => {
                 setSelectedImage({
                   id: img.id,
@@ -324,6 +325,10 @@ export default function App() {
                   program: img.program,
                   status: img.status,
                 })
+                setPage('browse')
+              }}
+              onNavigateCategory={(categoryPath) => {
+                setPath(categoryPath)
                 setPage('browse')
               }}
             />
