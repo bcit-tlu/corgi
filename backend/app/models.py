@@ -30,7 +30,7 @@ class Category(Base):
         "Category", back_populates="children", remote_side=[id]
     )
     images: Mapped[list["Image"]] = relationship(
-        "Image", back_populates="category", cascade="all, delete-orphan"
+        "Image", back_populates="category"
     )
 
 
