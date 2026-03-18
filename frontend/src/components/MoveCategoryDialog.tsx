@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
@@ -24,6 +24,12 @@ export default function MoveCategoryDialog({
   categories,
 }: MoveCategoryDialogProps) {
   const [newParentId, setNewParentId] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      setNewParentId(category?.parentId ?? null)
+    }
+  }, [open, category])
 
   const handleMove = () => {
     if (!category) return
