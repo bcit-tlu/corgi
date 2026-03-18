@@ -78,6 +78,13 @@ export default function App() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [userPanelOpen, setUserPanelOpen] = useState(false)
 
+  // Reset navigation state when user identity changes (login/logout/switch)
+  useEffect(() => {
+    setPage('browse')
+    setPath([])
+    setSelectedImage(null)
+  }, [currentUser])
+
   const loadCategories = useCallback(async () => {
     try {
       setCategoriesLoading(true)

@@ -61,9 +61,9 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false)
   }, [])
 
-  // Load users list when user is authenticated
+  // Load users list when an admin is authenticated
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser?.role === 'admin') {
       loadUsers()
     }
   }, [currentUser, loadUsers])
