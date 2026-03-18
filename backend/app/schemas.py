@@ -119,7 +119,6 @@ class ImageOut(ImageBase):
 class SourceImageOut(BaseModel):
     id: int
     original_filename: str
-    stored_path: str
     status: str
     error_message: str | None = None
     label: str | None = None

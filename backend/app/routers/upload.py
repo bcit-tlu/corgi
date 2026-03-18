@@ -1,11 +1,10 @@
 """Source image upload and processing status endpoints."""
 
-import asyncio
 import os
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +20,7 @@ router = APIRouter(prefix="/source-images", tags=["source-images"])
 @router.post("/upload", response_model=SourceImageOut, status_code=201)
 async def upload_source_image(
     file: Annotated[UploadFile, File()],
+    background_tasks: BackgroundTasks,
     _user: Annotated[User, Depends(require_role("admin", "instructor"))],
     label: Annotated[str | None, Form()] = None,
     category_id: Annotated[int | None, Form()] = None,
@@ -59,14 +59,9 @@ async def upload_source_image(
     await db.refresh(src)
 
     # Fire off the background processing task
-    asyncio.get_event_loop().create_task(_run_processing(src.id))
+    background_tasks.add_task(process_source_image, src.id)
 
     return src
-
-
-async def _run_processing(source_image_id: int) -> None:
-    """Wrapper to run the blocking VIPS processing in a thread."""
-    await process_source_image(source_image_id)
 
 
 @router.get("/", response_model=list[SourceImageOut])

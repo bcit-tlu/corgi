@@ -279,7 +279,6 @@ export function updateAnnouncement(body: {
 export interface ApiSourceImage {
   id: number
   original_filename: string
-  stored_path: string
   status: string
   error_message: string | null
   label: string | null

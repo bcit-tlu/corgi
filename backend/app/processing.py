@@ -1,5 +1,6 @@
 """VIPS-based image processing pipeline for DZI tile generation."""
 
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -54,7 +55,9 @@ async def process_source_image(source_image_id: int) -> None:
 
         try:
             output_dir = os.path.join(settings.tiles_dir, str(src.id))
-            dzi_rel, thumb_rel = generate_tiles(src.stored_path, output_dir)
+            dzi_rel, thumb_rel = await asyncio.to_thread(
+                generate_tiles, src.stored_path, output_dir
+            )
 
             # Build URLs for serving tiles via the API
             tile_sources_url = f"/api/tiles/{src.id}/{dzi_rel}"
