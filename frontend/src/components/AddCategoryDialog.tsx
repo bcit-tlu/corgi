@@ -21,17 +21,21 @@ export default function AddCategoryDialog({
 }: AddCategoryDialogProps) {
   const [label, setLabel] = useState('')
 
+  const handleClose = () => {
+    setLabel('')
+    onClose()
+  }
+
   const handleSubmit = () => {
     const trimmed = label.trim()
     if (trimmed) {
       onAdd(trimmed)
-      setLabel('')
-      onClose()
+      handleClose()
     }
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle>New Category (Level {currentDepth + 1})</DialogTitle>
       <DialogContent>
         <TextField
@@ -48,7 +52,7 @@ export default function AddCategoryDialog({
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleClose}>Cancel</Button>
         <Button onClick={handleSubmit} variant="contained" disabled={!label.trim()}>
           Create
         </Button>
