@@ -168,9 +168,10 @@ async def import_database(
             )
             db.add(img)
 
-        await db.commit()
+        # Flush images so sequence reset sees all rows
+        await db.flush()
 
-        # Reset sequences so new inserts get correct IDs
+        # Reset sequences so new inserts get correct IDs (before commit for atomicity)
         await db.execute(
             text("SELECT setval('categories_id_seq', COALESCE((SELECT MAX(id) FROM categories), 0))")
         )
@@ -180,6 +181,7 @@ async def import_database(
         await db.execute(
             text("SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 0))")
         )
+
         await db.commit()
 
     except Exception as exc:
