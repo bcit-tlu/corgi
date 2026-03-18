@@ -364,7 +364,14 @@ export default function App() {
       {announcement && <AnnouncementBanner message={announcement} />}
 
       {/* Main content */}
-      <Box component="main" sx={{ flexGrow: 1, py: 3 }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          py: 3,
+          bgcolor: page === 'people' || page === 'admin' ? '#d1cdcd' : undefined,
+        }}
+      >
         <Container maxWidth="lg">
           {page === 'admin' && canManageUsers ? (
             <AdminPage onAnnouncementChange={loadAnnouncement} />

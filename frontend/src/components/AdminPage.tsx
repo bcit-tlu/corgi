@@ -107,13 +107,7 @@ export default function AdminPage({ onAnnouncementChange }: AdminPageProps) {
   }
 
   return (
-    <Box
-      sx={{
-        bgcolor: '#d1cdcd',
-        borderRadius: 2,
-        p: 3,
-      }}
-    >
+    <Box>
       <Typography variant="h5" sx={{ mb: 3 }}>
         Admin
       </Typography>
