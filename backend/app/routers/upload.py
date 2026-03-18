@@ -24,6 +24,9 @@ async def upload_source_image(
     _user: Annotated[User, Depends(require_role("admin", "instructor"))],
     label: Annotated[str | None, Form()] = None,
     category_id: Annotated[int | None, Form()] = None,
+    copyright: Annotated[str | None, Form()] = None,
+    origin: Annotated[str | None, Form()] = None,
+    program: Annotated[str | None, Form()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> SourceImage:
     """Upload a source image and trigger background tile generation."""
@@ -53,6 +56,9 @@ async def upload_source_image(
         status="pending",
         label=label,
         category_id=category_id,
+        copyright=copyright,
+        origin=origin,
+        program=program,
     )
     db.add(src)
     await db.commit()

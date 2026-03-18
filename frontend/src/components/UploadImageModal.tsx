@@ -25,6 +25,9 @@ export default function UploadImageModal({
 }: UploadImageModalProps) {
   const [file, setFile] = useState<File | null>(null)
   const [label, setLabel] = useState('')
+  const [copyright, setCopyright] = useState('')
+  const [origin, setOrigin] = useState('')
+  const [program, setProgram] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,6 +69,9 @@ export default function UploadImageModal({
   const handleReset = () => {
     setFile(null)
     setLabel('')
+    setCopyright('')
+    setOrigin('')
+    setProgram('')
     setError(null)
     setUploading(false)
   }
@@ -75,7 +81,14 @@ export default function UploadImageModal({
     setUploading(true)
     setError(null)
     try {
-      await uploadSourceImage(file, label || undefined)
+      await uploadSourceImage(
+        file,
+        label || undefined,
+        undefined,
+        copyright || undefined,
+        origin || undefined,
+        program || undefined,
+      )
       onUploaded()
       onClose()
     } catch (err) {
@@ -154,6 +167,33 @@ export default function UploadImageModal({
           onChange={(e) => setLabel(e.target.value)}
           sx={{ mt: 2 }}
           placeholder="Image label (defaults to filename)"
+        />
+        <TextField
+          label="Copyright"
+          fullWidth
+          variant="outlined"
+          value={copyright}
+          onChange={(e) => setCopyright(e.target.value)}
+          sx={{ mt: 2 }}
+          placeholder="e.g. 2026 BCIT"
+        />
+        <TextField
+          label="Origin"
+          fullWidth
+          variant="outlined"
+          value={origin}
+          onChange={(e) => setOrigin(e.target.value)}
+          sx={{ mt: 2 }}
+          placeholder="Image origin or source"
+        />
+        <TextField
+          label="Program"
+          fullWidth
+          variant="outlined"
+          value={program}
+          onChange={(e) => setProgram(e.target.value)}
+          sx={{ mt: 2 }}
+          placeholder="Associated program"
         />
         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
           The image will be processed in the background using VIPS to generate

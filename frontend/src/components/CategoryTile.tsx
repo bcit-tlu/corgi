@@ -8,6 +8,14 @@ import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove'
 import Box from '@mui/material/Box'
 import type { Category } from '../types'
 
+function countAllObjects(cat: Category): number {
+  let total = cat.images.length
+  for (const child of cat.children) {
+    total += countAllObjects(child)
+  }
+  return total
+}
+
 interface CategoryTileProps {
   category: Category
   onClick: (category: Category) => void
@@ -15,8 +23,8 @@ interface CategoryTileProps {
 }
 
 export default function CategoryTile({ category, onClick, onMove }: CategoryTileProps) {
-  const itemCount =
-    category.children.length + category.images.length
+  const directCount = category.children.length + category.images.length
+  const totalObjects = countAllObjects(category)
 
   return (
     <Card
@@ -63,7 +71,8 @@ export default function CategoryTile({ category, onClick, onMove }: CategoryTile
             {category.label}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {itemCount} {itemCount === 1 ? 'item' : 'items'}
+            {directCount} {directCount === 1 ? 'item' : 'items'}
+            {totalObjects > 0 && ` · ${totalObjects} ${totalObjects === 1 ? 'object' : 'objects'}`}
           </Typography>
         </CardContent>
       </CardActionArea>

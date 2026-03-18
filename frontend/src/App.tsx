@@ -387,22 +387,48 @@ export default function App() {
           ) : selectedImage ? (
             /* ---- Viewer mode ---- */
             <>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  mb: 2,
-                }}
-              >
-                <Typography variant="h5">{selectedImage.label}</Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setSelectedImage(null)}
-                >
-                  Back
-                </Button>
+              {/* Breadcrumbs */}
+              <Box sx={{ mb: 2 }}>
+                <MuiBreadcrumbs aria-label="image breadcrumb">
+                  <Link
+                    component="button"
+                    variant="body2"
+                    underline="hover"
+                    color="inherit"
+                    onClick={() => {
+                      setSelectedImage(null)
+                      navigateToDepth(0)
+                    }}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <HomeIcon fontSize="small" />
+                    Home
+                  </Link>
+                  {path.map((cat, i) => (
+                    <Link
+                      key={cat.id}
+                      component="button"
+                      variant="body2"
+                      underline="hover"
+                      color="inherit"
+                      onClick={() => {
+                        setSelectedImage(null)
+                        navigateToDepth(i + 1)
+                      }}
+                      sx={{ cursor: 'pointer' }}
+                    >
+                      {cat.label}
+                    </Link>
+                  ))}
+                  <Typography variant="body2" color="text.primary">
+                    {selectedImage.label}
+                  </Typography>
+                </MuiBreadcrumbs>
               </Box>
 
               <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
