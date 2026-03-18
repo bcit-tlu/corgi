@@ -1,11 +1,14 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import AppBar from '@mui/material/AppBar'
+import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
-import Chip from '@mui/material/Chip'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
 import CircularProgress from '@mui/material/CircularProgress'
 import Container from '@mui/material/Container'
 import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
+import Popover from '@mui/material/Popover'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
@@ -13,16 +16,15 @@ import MuiBreadcrumbs from '@mui/material/Breadcrumbs'
 import Link from '@mui/material/Link'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder'
 import HomeIcon from '@mui/icons-material/Home'
-import LogoutIcon from '@mui/icons-material/Logout'
 import ImageViewer from './components/ImageViewer'
 import CategoryTile from './components/CategoryTile'
 import ImageTile from './components/ImageTile'
 import AddCategoryDialog from './components/AddCategoryDialog'
 import AdminPage from './components/AdminPage'
 import AnnouncementBanner from './components/AnnouncementBanner'
+import AddEditPersonModal from './components/AddEditPersonModal'
 import ManagePage from './components/ManagePage'
 import PeoplePage from './components/PeoplePage'
 import LoginScreen from './components/LoginScreen'
@@ -32,8 +34,9 @@ import {
   fetchAnnouncement,
   createCategory as apiCreateCategory,
 } from './api'
-import type { ApiCategoryTree } from './api'
-import type { Category, ImageItem } from './types'
+import type { ApiCategoryTree, ApiUser } from './api'
+import { updateUser as apiUpdateUser, fetchPrograms as apiFetchPrograms } from './api'
+import type { Category, ImageItem, Program } from './types'
 import { MAX_DEPTH } from './types'
 
 function apiTreeToCategory(node: ApiCategoryTree): Category {
@@ -76,6 +79,28 @@ export default function App() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
 
+  // User profile popover + edit modal state
+  const avatarRef = useRef<HTMLButtonElement>(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [programs, setPrograms] = useState<Program[]>([])
+
+  // Build ApiUser shape from currentUser for AddEditPersonModal
+  const currentApiUser: ApiUser | null = currentUser
+    ? {
+        id: currentUser.id,
+        name: currentUser.name,
+        email: currentUser.email,
+        role: currentUser.role,
+        program_id: currentUser.program_id ?? null,
+        program_name: currentUser.program_name ?? null,
+        last_access: currentUser.lastAccess ?? null,
+        metadata_extra: null,
+        created_at: '',
+        updated_at: '',
+      }
+    : null
+
   // Load announcement (works for both logged-in and login page)
   const loadAnnouncement = useCallback(async () => {
     try {
@@ -95,6 +120,8 @@ export default function App() {
     setPage('browse')
     setPath([])
     setSelectedImage(null)
+    setProfileOpen(false)
+    setEditModalOpen(false)
   }, [currentUser])
 
   const loadCategories = useCallback(async () => {
@@ -174,23 +201,6 @@ export default function App() {
       {/* App bar */}
       <AppBar position="static" elevation={1}>
         <Toolbar>
-          {(selectedImage || path.length > 0) && (
-            <IconButton
-              edge="start"
-              color="inherit"
-              aria-label="back"
-              sx={{ mr: 1 }}
-              onClick={() => {
-                if (selectedImage) {
-                  setSelectedImage(null)
-                } else {
-                  navigateToDepth(path.length - 1)
-                }
-              }}
-            >
-              <ArrowBackIcon />
-            </IconButton>
-          )}
           <Typography variant="h6" component="h1" sx={{ mr: 2 }}>
             Corgi
           </Typography>
@@ -205,28 +215,87 @@ export default function App() {
             TabIndicatorProps={{ style: { backgroundColor: 'white' } }}
             sx={{ flexGrow: 1 }}
           >
-            <Tab label="Browse" value="browse" />
-            {canEditContent && <Tab label="Manage" value="manage" />}
+            <Tab label="Home" value="browse" />
+            {canEditContent && <Tab label="Images" value="manage" />}
             {canManageUsers && <Tab label="People" value="people" />}
             {canManageUsers && <Tab label="Admin" value="admin" />}
           </Tabs>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Chip
-              label={`${currentUser.name} (${currentUser.role})`}
-              size="small"
-              sx={{
-                color: 'white',
-                borderColor: 'rgba(255,255,255,0.5)',
-              }}
-              variant="outlined"
-            />
             <IconButton
-              color="inherit"
-              aria-label="sign out"
-              onClick={logout}
+              ref={avatarRef}
+              onClick={() => setProfileOpen(true)}
+              sx={{ p: 0 }}
             >
-              <LogoutIcon />
+              <Avatar
+                sx={{
+                  width: 34,
+                  height: 34,
+                  fontSize: 14,
+                  bgcolor: 'rgba(255,255,255,0.25)',
+                  color: 'white',
+                }}
+              >
+                {currentUser.name
+                  .split(' ')
+                  .map((w) => w[0])
+                  .join('')
+                  .toUpperCase()
+                  .slice(0, 2)}
+              </Avatar>
             </IconButton>
+            <Popover
+              open={profileOpen}
+              anchorEl={avatarRef.current}
+              onClose={() => setProfileOpen(false)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <Card sx={{ minWidth: 240 }}>
+                <CardContent>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {currentUser.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {currentUser.email}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+                    {currentUser.role}
+                  </Typography>
+                  {currentUser.program_name && (
+                    <Typography variant="body2" color="text.secondary">
+                      {currentUser.program_name}
+                    </Typography>
+                  )}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                    <Link
+                      component="button"
+                      variant="body2"
+                      onClick={() => {
+                        setProfileOpen(false)
+                        // Load programs for the edit modal
+                        apiFetchPrograms()
+                          .then((p) => setPrograms(p.map((pg) => ({ id: pg.id, name: pg.name, created_at: pg.created_at, updated_at: pg.updated_at }))))
+                          .catch(() => {})
+                        setEditModalOpen(true)
+                      }}
+                    >
+                      Update
+                    </Link>
+                    <Link
+                      component="button"
+                      variant="body2"
+                      color="error"
+                      onClick={() => {
+                        setProfileOpen(false)
+                        logout()
+                      }}
+                    >
+                      Sign out
+                    </Link>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Popover>
           </Box>
         </Toolbar>
       </AppBar>
@@ -397,6 +466,25 @@ export default function App() {
         onClose={() => setDialogOpen(false)}
         onAdd={addCategory}
         currentDepth={currentDepth}
+      />
+
+      {/* Self-edit profile modal */}
+      <AddEditPersonModal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onSave={async (data) => {
+          if (!currentUser) return
+          try {
+            await apiUpdateUser(currentUser.id, data)
+            setEditModalOpen(false)
+            // Refresh current user data by re-validating the token
+            window.location.reload()
+          } catch (err) {
+            console.error('Failed to update profile', err)
+          }
+        }}
+        programs={programs}
+        user={currentApiUser}
       />
 
     </Box>

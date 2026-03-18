@@ -30,7 +30,8 @@ export default function LoginScreen({ onLogin, announcement }: LoginScreenProps)
     try {
       await onLogin(email, password)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      console.error('Login error:', err instanceof Error ? err.message : err)
+      setError('Incorrect email or password')
     } finally {
       setLoading(false)
     }
