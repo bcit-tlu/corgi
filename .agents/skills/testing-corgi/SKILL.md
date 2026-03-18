@@ -32,6 +32,56 @@ These are seeded automatically on first DB init via `db/seed.sql`.
   ```
 - The `docker compose down -v` flag removes volumes, giving a clean DB. Without `-v`, the DB persists between runs.
 
+## Seed Data (Categories & Images)
+
+After a fresh `docker compose up` with `-v`, the following seed data exists:
+
+**Categories (hierarchical):**
+- Architecture (root, id=1)
+  - Italian (id=3, parent=1)
+    - Gothic (id=5, parent=3)
+  - American (id=4, parent=1)
+- Panoramas (root, id=2)
+
+**Images:**
+- 4 seeded images with various category_id assignments
+- Images uploaded via the Upload modal start with category_id = NULL (uncategorized)
+
+## Testing Category Management
+
+### Moving Categories
+1. Log in as Alice (admin)
+2. Navigate to Home page — category tiles have a move icon (top-right corner, folder-arrow icon)
+3. Click the move icon on a category tile to open the Move Category dialog
+4. The Destination dropdown shows the full category tree with indentation, excluding the category being moved and its descendants (circular reference prevention)
+5. Select a new parent (or "None (root level)" to make it a root category)
+6. Click MOVE — the page refreshes to show the updated hierarchy
+
+**Key things to verify:**
+- The dropdown excludes the moving category and its descendants (prevents circular references)
+- After moving, the category appears under the new parent
+- Images within the moved category remain associated with it
+- The move icon only appears for admin/instructor roles
+
+### Image-Category Association (Edit Image Modal)
+1. Navigate to IMAGES tab
+2. Click any image row to open the Edit Image modal
+3. The Category dropdown appears between Label and Copyright fields
+4. The dropdown shows hierarchical options with "└" prefix indentation
+5. Select a category or "None (root level)" to uncategorize
+6. Click Save
+
+**Key things to verify:**
+- Category column in Images table shows hierarchical paths (e.g., "Architecture:Italian:Gothic")
+- Each segment in the path is a clickable link that navigates to that category on the Home page
+- After saving, the category path updates in the table
+- Setting to "None (root level)" makes the image uncategorized
+
+### Uncategorized Images on Home Page
+- Images with no category (category_id = NULL) render at the root level of the Home page alongside category tiles
+- After assigning a category to an image, it should disappear from the Home root
+- After removing a category from an image, it should appear at the Home root
+
 ## Testing the Image Upload Pipeline
 
 ### Prerequisites
@@ -91,3 +141,9 @@ A recognizable pattern like a checkerboard makes it easy to verify tile generati
 - **pyvips ModuleNotFoundError**: Ensure `libvips-dev`, `pkg-config`, and `gcc` are installed in the Dockerfile before `poetry install`
 - **Sequential access stream consumed**: When using `pyvips.Image.new_from_file(path, access="sequential")`, the pixel stream can only be read once. Use `pyvips.Image.thumbnail(path, size)` (class method, opens fresh file) instead of `image.thumbnail_image(size)` (instance method, reuses stream) for operations after `dzsave`
 - **Network label conflict**: Docker compose network label mismatch — clean up with `docker compose down -v && docker network rm corgi_default`
+- **Move dialog stale state**: The MoveCategoryDialog uses a `useEffect` to reset the destination when reopened. If the dialog shows a stale parent selection, check that the `useEffect` dependencies include both `open` and `category`.
+- **Circular reference on move**: The backend validates `parent_id` changes by walking the ancestor chain. If a 400 error occurs when moving, check that the target is not a descendant of the category being moved.
+
+## Devin Secrets Needed
+
+No external secrets are required — the app uses local Docker Compose with seeded credentials.
