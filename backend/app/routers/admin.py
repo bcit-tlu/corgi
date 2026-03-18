@@ -148,17 +148,33 @@ async def import_database(
             db.add(user)
 
         # Import categories (ordered by id to respect parent_id references)
-        sorted_cats = sorted(dump["categories"], key=lambda c: c["id"])
-        for c in sorted_cats:
-            cat = Category(
-                id=c["id"],
-                label=c["label"],
-                parent_id=c.get("parent_id"),
-                program=c.get("program"),
-                status=c.get("status", "active"),
-                metadata_=c.get("metadata", {}),
-            )
-            db.add(cat)
+        # Import categories (topologically sorted to respect parent_id FK)
+        cat_map = {c["id"]: c for c in dump["categories"]}
+        inserted_ids: set[int] = set()
+        remaining = list(dump["categories"])
+        while remaining:
+            progress = False
+            next_remaining = []
+            for c in remaining:
+                pid = c.get("parent_id")
+                if pid is None or pid in inserted_ids:
+                    cat = Category(
+                        id=c["id"],
+                        label=c["label"],
+                        parent_id=pid,
+                        program=c.get("program"),
+                        status=c.get("status", "active"),
+                        metadata_=c.get("metadata", {}),
+                    )
+                    db.add(cat)
+                    inserted_ids.add(c["id"])
+                    progress = True
+                else:
+                    next_remaining.append(c)
+            if not progress:
+                raise ValueError("Circular or broken parent_id references in categories")
+            remaining = next_remaining
+            await db.flush()
 
         # Flush categories so image foreign keys resolve
         await db.flush()
