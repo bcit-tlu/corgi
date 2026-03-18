@@ -199,14 +199,16 @@ async def import_database(
         await db.flush()
 
         # Reset sequences so new inserts get correct IDs (before commit for atomicity)
+        # Use GREATEST(..., 1) with is_called=EXISTS(...) to handle empty tables
+        # (PostgreSQL SERIAL sequences have MINVALUE 1, so setval(seq, 0) would fail)
         await db.execute(
-            text("SELECT setval('categories_id_seq', COALESCE((SELECT MAX(id) FROM categories), 0))")
+            text("SELECT setval('categories_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM categories), 1), 1), EXISTS(SELECT 1 FROM categories))")
         )
         await db.execute(
-            text("SELECT setval('images_id_seq', COALESCE((SELECT MAX(id) FROM images), 0))")
+            text("SELECT setval('images_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM images), 1), 1), EXISTS(SELECT 1 FROM images))")
         )
         await db.execute(
-            text("SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 0))")
+            text("SELECT setval('users_id_seq', GREATEST(COALESCE((SELECT MAX(id) FROM users), 1), 1), EXISTS(SELECT 1 FROM users))")
         )
 
         await db.commit()
