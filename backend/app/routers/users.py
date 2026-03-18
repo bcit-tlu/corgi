@@ -135,6 +135,8 @@ async def delete_user(
     _user: Annotated[User, Depends(_admin)],
     db: AsyncSession = Depends(get_db),
 ):
+    if _user.id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

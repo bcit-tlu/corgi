@@ -57,9 +57,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    let parsed: User
     try {
-      parsed = JSON.parse(stored) as User
+      JSON.parse(stored)
     } catch {
       setToken(null)
       localStorage.removeItem('corgi_user')
@@ -71,9 +70,12 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => {
+      .then(async (res) => {
         if (res.ok) {
-          setCurrentUser(parsed)
+          const data = await res.json()
+          const freshUser = toUser(data)
+          setCurrentUser(freshUser)
+          localStorage.setItem('corgi_user', JSON.stringify(freshUser))
         } else {
           // Token invalid or user no longer exists — clear session
           setToken(null)
