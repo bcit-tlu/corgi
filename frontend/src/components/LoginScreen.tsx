@@ -24,7 +24,7 @@ const ROLE_COLORS: Record<string, 'error' | 'warning' | 'info'> = {
 
 interface LoginScreenProps {
   users: User[]
-  onLogin: (userId: string) => void
+  onLogin: (userId: number) => void
 }
 
 export default function LoginScreen({ users, onLogin }: LoginScreenProps) {

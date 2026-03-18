@@ -41,9 +41,9 @@ interface UserManagementPanelProps {
   open: boolean
   onClose: () => void
   users: User[]
-  currentUserId: string
-  onAddUser: (name: string, email: string, role: Role) => void
-  onDeleteUser: (userId: string) => void
+  currentUserId: number
+  onAddUser: (name: string, email: string, role: Role, program?: string) => void
+  onDeleteUser: (userId: number) => void
 }
 
 export default function UserManagementPanel({
@@ -58,15 +58,18 @@ export default function UserManagementPanel({
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('student')
+  const [program, setProgram] = useState('')
 
   const handleAdd = () => {
     const trimmedName = name.trim()
     const trimmedEmail = email.trim()
+    const trimmedProgram = program.trim()
     if (trimmedName && trimmedEmail) {
-      onAddUser(trimmedName, trimmedEmail, role)
+      onAddUser(trimmedName, trimmedEmail, role, trimmedProgram || undefined)
       setName('')
       setEmail('')
       setRole('student')
+      setProgram('')
       setAddOpen(false)
     }
   }
@@ -177,9 +180,26 @@ export default function UserManagementPanel({
               <MenuItem value="student">Student</MenuItem>
             </Select>
           </FormControl>
+          <TextField
+            label="Program"
+            fullWidth
+            variant="outlined"
+            value={program}
+            onChange={(e) => setProgram(e.target.value)}
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setAddOpen(false)
+              setName('')
+              setEmail('')
+              setRole('student')
+              setProgram('')
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             onClick={handleAdd}
             variant="contained"

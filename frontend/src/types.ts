@@ -1,15 +1,22 @@
 export interface ImageItem {
-  id: string
+  id: number
   label: string
   thumb: string
   tileSources: string
+  copyright?: string | null
+  origin?: string | null
+  program?: string | null
+  status?: string | null
 }
 
 export interface Category {
-  id: string
+  id: number
   label: string
+  parentId: number | null
   children: Category[]
   images: ImageItem[]
+  program?: string | null
+  status?: string | null
 }
 
 export const MAX_DEPTH = 6
@@ -17,8 +24,10 @@ export const MAX_DEPTH = 6
 export type Role = 'admin' | 'instructor' | 'student'
 
 export interface User {
-  id: string
+  id: number
   name: string
   email: string
   role: Role
+  program?: string | null
+  lastAccess?: string | null
 }

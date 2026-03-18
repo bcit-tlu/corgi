@@ -1,0 +1,52 @@
+-- Corgi Image Library – seed data
+-- This file is mounted into the PostgreSQL container at
+-- /docker-entrypoint-initdb.d/ and executed automatically on first startup.
+
+-- ── Categories ────────────────────────────────────────────
+
+INSERT INTO categories (id, label, parent_id, program, status, metadata)
+VALUES
+  (1, 'Architecture', NULL, 'Digital Design', 'active', '{}'),
+  (2, 'Panoramas',    NULL, 'Photography',    'active', '{}'),
+  (3, 'Italian',      1,    'Digital Design', 'active', '{}'),
+  (4, 'American',     1,    'Digital Design', 'active', '{}'),
+  (5, 'Gothic',       3,    'Digital Design', 'active', '{}');
+
+SELECT setval('categories_id_seq', 5);
+
+-- ── Images ────────────────────────────────────────────────
+
+INSERT INTO images (id, label, thumb, tile_sources, category_id, copyright, origin, program, status, metadata)
+VALUES
+  (1,
+   'Duomo di Milano',
+   'https://openseadragon.github.io/example-images/duomo/duomo_files/11/0_0.jpg',
+   'https://openseadragon.github.io/example-images/duomo/duomo.dzi',
+   3, 'Public Domain', 'OpenSeaDragon Examples', 'Digital Design', 'active', '{}'),
+  (2,
+   'Duomo di Milano (Gothic Detail)',
+   'https://openseadragon.github.io/example-images/duomo/duomo_files/11/0_0.jpg',
+   'https://openseadragon.github.io/example-images/duomo/duomo.dzi',
+   5, 'Public Domain', 'OpenSeaDragon Examples', 'Digital Design', 'active', '{}'),
+  (3,
+   'Highsmith Panorama',
+   'https://openseadragon.github.io/example-images/highsmith/highsmith_files/11/0_0.jpg',
+   'https://openseadragon.github.io/example-images/highsmith/highsmith.dzi',
+   4, 'Public Domain', 'Library of Congress', 'Photography', 'active', '{}'),
+  (4,
+   'Library of Congress',
+   'https://openseadragon.github.io/example-images/highsmith/highsmith_files/11/0_0.jpg',
+   'https://openseadragon.github.io/example-images/highsmith/highsmith.dzi',
+   2, 'Public Domain', 'Library of Congress', 'Photography', 'active', '{}');
+
+SELECT setval('images_id_seq', 4);
+
+-- ── Users ─────────────────────────────────────────────────
+
+INSERT INTO users (id, name, email, role, program, last_access, metadata)
+VALUES
+  (1, 'Alice Admin',      'alice@example.com',   'admin',      'Administration', NULL, '{}'),
+  (2, 'Bob Instructor',   'bob@example.com',     'instructor', 'Digital Design', NULL, '{}'),
+  (3, 'Charlie Student',  'charlie@example.com', 'student',    'Digital Design', NULL, '{}');
+
+SELECT setval('users_id_seq', 3);

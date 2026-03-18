@@ -4,10 +4,12 @@ import type { User, Role } from './types'
 export interface AuthContextValue {
   currentUser: User | null
   users: User[]
-  login: (userId: string) => void
+  loading: boolean
+  login: (userId: number) => void
   logout: () => void
-  addUser: (name: string, email: string, role: Role) => void
-  deleteUser: (userId: string) => void
+  addUser: (name: string, email: string, role: Role, program?: string) => void
+  deleteUser: (userId: number) => void
+  refreshUsers: () => void
   canManageUsers: boolean
   canEditContent: boolean
 }

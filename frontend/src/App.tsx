@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import AppBar from '@mui/material/AppBar'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
+import CircularProgress from '@mui/material/CircularProgress'
 import Container from '@mui/material/Container'
 import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
@@ -22,14 +23,40 @@ import AddCategoryDialog from './components/AddCategoryDialog'
 import LoginScreen from './components/LoginScreen'
 import UserManagementPanel from './components/UserManagementPanel'
 import { useAuth } from './useAuth'
-import { rootCategories as initialData } from './data'
+import {
+  fetchCategoryTree,
+  createCategory as apiCreateCategory,
+} from './api'
+import type { ApiCategoryTree } from './api'
 import type { Category, ImageItem } from './types'
 import { MAX_DEPTH } from './types'
+
+function apiTreeToCategory(node: ApiCategoryTree): Category {
+  return {
+    id: node.id,
+    label: node.label,
+    parentId: node.parent_id,
+    children: node.children.map(apiTreeToCategory),
+    images: node.images.map((img) => ({
+      id: img.id,
+      label: img.label,
+      thumb: img.thumb,
+      tileSources: img.tile_sources,
+      copyright: img.copyright,
+      origin: img.origin,
+      program: img.program,
+      status: img.status,
+    })),
+    program: node.program,
+    status: node.status,
+  }
+}
 
 export default function App() {
   const {
     currentUser,
     users,
+    loading: usersLoading,
     login,
     logout,
     addUser,
@@ -38,11 +65,30 @@ export default function App() {
     canEditContent,
   } = useAuth()
 
-  const [categories, setCategories] = useState<Category[]>(initialData)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [path, setPath] = useState<Category[]>([])
   const [selectedImage, setSelectedImage] = useState<ImageItem | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [userPanelOpen, setUserPanelOpen] = useState(false)
+
+  const loadCategories = useCallback(async () => {
+    try {
+      setCategoriesLoading(true)
+      const tree = await fetchCategoryTree()
+      setCategories(tree.map(apiTreeToCategory))
+    } catch (err) {
+      console.error('Failed to load categories', err)
+    } finally {
+      setCategoriesLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (currentUser) {
+      loadCategories()
+    }
+  }, [currentUser, loadCategories])
 
   const currentDepth = path.length
 
@@ -72,36 +118,26 @@ export default function App() {
   }
 
   const addCategory = useCallback(
-    (label: string) => {
-      const newCat: Category = {
-        id: `cat-${Date.now()}`,
-        label,
-        children: [],
-        images: [],
+    async (label: string) => {
+      const parentId = path.length > 0 ? path[path.length - 1].id : null
+      try {
+        await apiCreateCategory({ label, parent_id: parentId })
+        await loadCategories()
+      } catch (err) {
+        console.error('Failed to create category', err)
       }
-
-      const updateChildren = (
-        cats: Category[],
-        pathIndex: number,
-      ): Category[] => {
-        if (pathIndex >= path.length) {
-          return [...cats, newCat]
-        }
-        return cats.map((c) => {
-          if (c.id === path[pathIndex].id) {
-            return {
-              ...c,
-              children: updateChildren(c.children, pathIndex + 1),
-            }
-          }
-          return c
-        })
-      }
-
-      setCategories((prev) => updateChildren(prev, 0))
     },
-    [path],
+    [path, loadCategories],
   )
+
+  // Show loading spinner while users are loading
+  if (usersLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
 
   // Show login screen when no user is authenticated
   if (!currentUser) {
@@ -277,7 +313,12 @@ export default function App() {
                 ))}
               </Box>
 
-              {currentCategories.length === 0 &&
+              {categoriesLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                currentCategories.length === 0 &&
                 currentImages.length === 0 && (
                   <Typography
                     variant="body1"
@@ -286,7 +327,8 @@ export default function App() {
                   >
                     This category is empty. Add a sub-category to get started.
                   </Typography>
-                )}
+                )
+              )}
             </>
           )}
         </Container>

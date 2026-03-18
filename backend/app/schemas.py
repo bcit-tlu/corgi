@@ -1,0 +1,110 @@
+from datetime import datetime
+from pydantic import BaseModel
+
+
+# ── Category ──────────────────────────────────────────────
+
+class CategoryBase(BaseModel):
+    label: str
+    parent_id: int | None = None
+    program: str | None = None
+    status: str | None = "active"
+    metadata_extra: dict | None = None
+
+
+class CategoryCreate(CategoryBase):
+    pass
+
+
+class CategoryUpdate(BaseModel):
+    label: str | None = None
+    parent_id: int | None = None
+    program: str | None = None
+    status: str | None = None
+    metadata_extra: dict | None = None
+
+
+class CategoryOut(CategoryBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CategoryTree(CategoryOut):
+    children: list["CategoryTree"] = []
+    images: list["ImageOut"] = []
+
+
+# ── Image ─────────────────────────────────────────────────
+
+class ImageBase(BaseModel):
+    label: str
+    thumb: str
+    tile_sources: str
+    category_id: int | None = None
+    copyright: str | None = None
+    origin: str | None = None
+    program: str | None = None
+    status: str | None = "active"
+    metadata_extra: dict | None = None
+
+
+class ImageCreate(ImageBase):
+    pass
+
+
+class ImageUpdate(BaseModel):
+    label: str | None = None
+    thumb: str | None = None
+    tile_sources: str | None = None
+    category_id: int | None = None
+    copyright: str | None = None
+    origin: str | None = None
+    program: str | None = None
+    status: str | None = None
+    metadata_extra: dict | None = None
+
+
+class ImageOut(ImageBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── User ──────────────────────────────────────────────────
+
+class UserBase(BaseModel):
+    name: str
+    email: str
+    role: str = "student"
+    program: str | None = None
+    metadata_extra: dict | None = None
+
+
+class UserCreate(UserBase):
+    pass
+
+
+class UserUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    role: str | None = None
+    program: str | None = None
+    metadata_extra: dict | None = None
+
+
+class UserOut(UserBase):
+    id: int
+    last_access: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# Rebuild forward refs for nested models
+CategoryTree.model_rebuild()

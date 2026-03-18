@@ -1,45 +1,85 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import type { User, Role } from './types'
 import { AuthContext } from './authContextValue'
+import {
+  fetchUsers as apiFetchUsers,
+  loginUser as apiLoginUser,
+  createUser as apiCreateUser,
+  deleteUser as apiDeleteUser,
+} from './api'
+import type { ApiUser } from './api'
 
-const SEED_USERS = [
-  { id: 'u-admin', name: 'Alice Admin', email: 'alice@example.com', role: 'admin' as const },
-  { id: 'u-instructor', name: 'Bob Instructor', email: 'bob@example.com', role: 'instructor' as const },
-  { id: 'u-student', name: 'Charlie Student', email: 'charlie@example.com', role: 'student' as const },
-]
+function toUser(u: ApiUser): User {
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role as Role,
+    program: u.program,
+    lastAccess: u.last_access,
+  }
+}
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<User[]>(SEED_USERS)
+  const [users, setUsers] = useState<User[]>([])
   const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const loadUsers = useCallback(async () => {
+    try {
+      const data = await apiFetchUsers()
+      setUsers(data.map(toUser))
+    } catch (err) {
+      console.error('Failed to load users', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadUsers()
+  }, [loadUsers])
 
   const login = useCallback(
-    (userId: string) => {
-      const user = users.find((u) => u.id === userId) ?? null
-      setCurrentUser(user)
+    async (userId: number) => {
+      try {
+        const data = await apiLoginUser(userId)
+        setCurrentUser(toUser(data))
+      } catch (err) {
+        console.error('Login failed', err)
+      }
     },
-    [users],
+    [],
   )
 
   const logout = useCallback(() => {
     setCurrentUser(null)
   }, [])
 
-  const addUser = useCallback((name: string, email: string, role: Role) => {
-    const newUser: User = {
-      id: `u-${Date.now()}`,
-      name,
-      email,
-      role,
-    }
-    setUsers((prev) => [...prev, newUser])
-  }, [])
+  const addUser = useCallback(
+    async (name: string, email: string, role: Role, program?: string) => {
+      try {
+        const data = await apiCreateUser({ name, email, role, program })
+        const newUser = toUser(data)
+        setUsers((prev) => [...prev, newUser])
+      } catch (err) {
+        console.error('Failed to add user', err)
+      }
+    },
+    [],
+  )
 
   const deleteUser = useCallback(
-    (userId: string) => {
-      setUsers((prev) => prev.filter((u) => u.id !== userId))
-      if (currentUser?.id === userId) {
-        setCurrentUser(null)
+    async (userId: number) => {
+      try {
+        await apiDeleteUser(userId)
+        setUsers((prev) => prev.filter((u) => u.id !== userId))
+        if (currentUser?.id === userId) {
+          setCurrentUser(null)
+        }
+      } catch (err) {
+        console.error('Failed to delete user', err)
       }
     },
     [currentUser],
@@ -54,10 +94,12 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         currentUser,
         users,
+        loading,
         login,
         logout,
         addUser,
         deleteUser,
+        refreshUsers: loadUsers,
         canManageUsers,
         canEditContent,
       }}
