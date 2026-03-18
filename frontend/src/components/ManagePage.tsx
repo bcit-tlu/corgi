@@ -21,14 +21,12 @@ import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder'
 import DeleteIcon from '@mui/icons-material/Delete'
 import InfoIcon from '@mui/icons-material/Info'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import { fetchImages, updateImage, deleteImage } from '../api'
 import type { ApiImage } from '../api'
 import type { Category } from '../types'
 import EditImageModal from './EditImageModal'
 import type { ImageFormData } from './EditImageModal'
-import ReplaceImageModal from './ReplaceImageModal'
 import UploadImageModal from './UploadImageModal'
 
 interface CategoryPathSegment {
@@ -113,10 +111,6 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
   const [editOpen, setEditOpen] = useState(false)
   const [editingImage, setEditingImage] = useState<ApiImage | null>(null)
 
-  // Replace modal state
-  const [replaceOpen, setReplaceOpen] = useState(false)
-  const [replacingImage, setReplacingImage] = useState<ApiImage | null>(null)
-
   // Upload modal state
   const [uploadOpen, setUploadOpen] = useState(false)
 
@@ -186,14 +180,6 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
   const handleMenuView = () => {
     if (menuImage && onViewImage) {
       onViewImage(menuImage)
-    }
-    handleMenuClose()
-  }
-
-  const handleMenuReplace = () => {
-    if (menuImage) {
-      setReplacingImage(menuImage)
-      setReplaceOpen(true)
     }
     handleMenuClose()
   }
@@ -322,12 +308,6 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
           </ListItemIcon>
           <ListItemText>View</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleMenuReplace}>
-          <ListItemIcon>
-            <SwapHorizIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Replace</ListItemText>
-        </MenuItem>
         <MenuItem onClick={handleMenuDetails}>
           <ListItemIcon>
             <InfoIcon fontSize="small" />
@@ -355,16 +335,6 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
         }}
         image={editingImage}
         categories={categories}
-      />
-
-      {/* Replace image modal */}
-      <ReplaceImageModal
-        open={replaceOpen}
-        onClose={() => {
-          setReplaceOpen(false)
-          setReplacingImage(null)
-        }}
-        imageLabel={replacingImage?.label ?? ''}
       />
 
       {/* Upload image modal */}
