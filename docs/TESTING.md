@@ -17,7 +17,7 @@ All seed users share the password `password`.
 |------------------|------------------------|------------|--------------|
 | Haruki Tanaka      | admin@bcit.ca      | password   | admin        |
 | Carlos Henrique Souza   | instructor@bcit.ca        | password   | instructor   |
-| Mira Patel  | mira@student.com    | password   | student      |
+| Mira Patel  | student@bcit.ca    | password   | student      |
 
 ---
 
@@ -43,7 +43,7 @@ All seed users share the password `password`.
 1. Login as `admin@bcit.ca` / `password` (admin).
 2. **Assert:** 4 tabs visible: Home, Images, People, Admin.
 3. Click Logout.
-4. Login as `mira@student.com` / `password` (student).
+4. Login as `student@bcit.ca` / `password` (student).
 5. **Assert:** Only 1 tab visible: Home. No Manage tab, no Admin tab, no People tab.
 6. **Assert:** Category tiles still load (students can browse).
 7. Click Logout.
@@ -99,7 +99,7 @@ curl -s http://localhost:8000/api/categories/ -H "Authorization: Bearer $TOKEN"
 # Get a student token
 STUDENT_TOKEN=$(curl -s http://localhost:8000/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"mira@student.com","password":"password"}' \
+  -d '{"email":"student@bcit.ca","password":"password"}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
 # Try an admin-only route
