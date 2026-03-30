@@ -158,15 +158,19 @@ export default function App() {
     const params = new URLSearchParams(window.location.search)
     const imgId = params.get('image')
     if (imgId) {
-      pendingImageId.current = Number(imgId)
-      const z = params.get('zoom')
-      const px = params.get('x')
-      const py = params.get('y')
-      if (z && px && py) {
-        pendingViewport.current = {
-          zoom: parseFloat(z),
-          x: parseFloat(px),
-          y: parseFloat(py),
+      const parsedId = Number(imgId)
+      if (!Number.isNaN(parsedId)) {
+        pendingImageId.current = parsedId
+        const z = params.get('zoom')
+        const px = params.get('x')
+        const py = params.get('y')
+        if (z && px && py) {
+          const zoom = parseFloat(z)
+          const x = parseFloat(px)
+          const y = parseFloat(py)
+          if (!Number.isNaN(zoom) && !Number.isNaN(x) && !Number.isNaN(y)) {
+            pendingViewport.current = { zoom, x, y }
+          }
         }
       }
     }
