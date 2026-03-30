@@ -249,6 +249,8 @@ export default function App() {
 
   // Keep URL search params in sync with the current view
   useEffect(() => {
+    // Don't overwrite URL while a shared-link image is still pending resolution
+    if (pendingImageId.current !== null) return
     const params = new URLSearchParams()
     if (selectedImage) {
       params.set('image', String(selectedImage.id))
