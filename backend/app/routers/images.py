@@ -68,26 +68,6 @@ async def create_image(
     return img
 
 
-@router.patch("/{image_id}", response_model=ImageOut)
-async def update_image(
-    image_id: int,
-    body: ImageUpdate,
-    _user: Annotated[User, Depends(require_role("admin", "instructor"))],
-    db: AsyncSession = Depends(get_db),
-):
-    img = await db.get(Image, image_id)
-    if not img:
-        raise HTTPException(status_code=404, detail="Image not found")
-    update_data = body.model_dump(exclude_unset=True)
-    if "metadata_extra" in update_data:
-        update_data["metadata_"] = update_data.pop("metadata_extra")
-    for key, value in update_data.items():
-        setattr(img, key, value)
-    await db.commit()
-    await db.refresh(img)
-    return img
-
-
 @router.patch("/bulk", response_model=list[ImageOut])
 async def bulk_update_images(
     body: ImageBulkUpdate,
@@ -109,6 +89,26 @@ async def bulk_update_images(
     stmt = select(Image).where(Image.id.in_(body.image_ids)).order_by(Image.label)
     result = await db.execute(stmt)
     return result.scalars().all()
+
+
+@router.patch("/{image_id}", response_model=ImageOut)
+async def update_image(
+    image_id: int,
+    body: ImageUpdate,
+    _user: Annotated[User, Depends(require_role("admin", "instructor"))],
+    db: AsyncSession = Depends(get_db),
+):
+    img = await db.get(Image, image_id)
+    if not img:
+        raise HTTPException(status_code=404, detail="Image not found")
+    update_data = body.model_dump(exclude_unset=True)
+    if "metadata_extra" in update_data:
+        update_data["metadata_"] = update_data.pop("metadata_extra")
+    for key, value in update_data.items():
+        setattr(img, key, value)
+    await db.commit()
+    await db.refresh(img)
+    return img
 
 
 @router.delete("/bulk", status_code=204)
