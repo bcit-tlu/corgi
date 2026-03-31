@@ -494,13 +494,21 @@ export default function App() {
           updatedAt: updated.updated_at,
         })
         setImageEditOpen(false)
-        await loadCategories()
+        // Refresh categories and update breadcrumb path from the fresh tree
+        const freshTree = (await fetchCategoryTree()).map(apiTreeToCategory)
+        setCategories(freshTree)
+        if (updated.category_id != null) {
+          const newPath = findCategoryPath(freshTree, updated.category_id)
+          setPath(newPath ?? [])
+        } else {
+          setPath([])
+        }
         loadUncategorizedImages()
       } catch (err) {
         console.error('Failed to update image', err)
       }
     },
-    [selectedImage, loadCategories, loadUncategorizedImages],
+    [selectedImage, loadUncategorizedImages],
   )
 
   // Show loading spinner while users are loading
@@ -785,7 +793,7 @@ export default function App() {
                 <Typography variant="body2" color="text.secondary">
                   Use your scroll wheel to zoom, or click and drag to pan.
                   Use the rotation buttons to rotate the image, or pinch-rotate
-                  on touch devices. The mini-map in the bottom-left corner
+                  on touch devices. The mini-map in the bottom-right corner
                   shows your current viewport.
                 </Typography>
               </Box>
