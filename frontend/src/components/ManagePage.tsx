@@ -218,6 +218,11 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
   const handleDeleteImage = async (image: ApiImage) => {
     try {
       await deleteImage(image.id)
+      setSelected((prev) => {
+        const next = new Set(prev)
+        next.delete(image.id)
+        return next
+      })
       await loadImages()
     } catch (err) {
       console.error('Failed to delete image', err)
