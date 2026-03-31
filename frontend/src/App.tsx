@@ -20,6 +20,7 @@ import Snackbar from '@mui/material/Snackbar'
 import Tooltip from '@mui/material/Tooltip'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder'
+import EditIcon from '@mui/icons-material/Edit'
 import HomeIcon from '@mui/icons-material/Home'
 import LinkIcon from '@mui/icons-material/Link'
 import ImageViewer from './components/ImageViewer'
@@ -33,6 +34,8 @@ import AddEditPersonModal from './components/AddEditPersonModal'
 import ManagePage from './components/ManagePage'
 import PeoplePage from './components/PeoplePage'
 import LoginScreen from './components/LoginScreen'
+import EditImageModal from './components/EditImageModal'
+import type { ImageFormData } from './components/EditImageModal'
 import UploadImageModal from './components/UploadImageModal'
 import { useAuth } from './useAuth'
 import {
@@ -44,7 +47,7 @@ import {
   updateCategory as apiUpdateCategory,
 } from './api'
 import type { ApiCategoryTree, ApiImage, ApiUser } from './api'
-import { updateUser as apiUpdateUser, fetchPrograms as apiFetchPrograms } from './api'
+import { updateUser as apiUpdateUser, fetchPrograms as apiFetchPrograms, updateImage as apiUpdateImage } from './api'
 import MoveCategoryDialog from './components/MoveCategoryDialog'
 import type { Category, ImageItem, Program } from './types'
 
@@ -119,6 +122,9 @@ export default function App() {
   // Move category dialog state
   const [moveCatOpen, setMoveCatOpen] = useState(false)
   const [movingCategory, setMovingCategory] = useState<Category | null>(null)
+
+  // Image edit modal state (for viewer page)
+  const [imageEditOpen, setImageEditOpen] = useState(false)
 
   // User profile popover + edit modal state
   const avatarRef = useRef<HTMLButtonElement>(null)
@@ -431,6 +437,39 @@ export default function App() {
     [loadCategories, categories],
   )
 
+  // Build ApiImage shape from selectedImage for EditImageModal on viewer page
+  const selectedApiImage: ApiImage | null = selectedImage
+    ? {
+        id: selectedImage.id,
+        name: selectedImage.name,
+        thumb: selectedImage.thumb,
+        tile_sources: selectedImage.tileSources,
+        category_id: path.length > 0 ? path[path.length - 1].id : null,
+        copyright: selectedImage.copyright ?? null,
+        note: selectedImage.note ?? null,
+        program_ids: selectedImage.programIds,
+        active: selectedImage.active,
+        metadata_extra: null,
+        created_at: '',
+        updated_at: '',
+      }
+    : null
+
+  const handleSaveViewerImage = useCallback(
+    async (data: ImageFormData) => {
+      if (!selectedImage) return
+      try {
+        await apiUpdateImage(selectedImage.id, data)
+        setImageEditOpen(false)
+        await loadCategories()
+        loadUncategorizedImages()
+      } catch (err) {
+        console.error('Failed to update image', err)
+      }
+    },
+    [selectedImage, loadCategories, loadUncategorizedImages],
+  )
+
   // Show loading spinner while users are loading
   if (usersLoading) {
     return (
@@ -451,22 +490,11 @@ export default function App() {
       <AppBar position="static" elevation={1}>
         <Toolbar>
           <Box
-            component="a"
-            href="/"
-            onClick={(e: React.MouseEvent) => {
-              e.preventDefault()
-              setPage('browse')
-              clearImage()
-              setPath([])
-            }}
             sx={{
               display: 'flex',
               alignItems: 'center',
               gap: 1,
               mr: 2,
-              textDecoration: 'none',
-              color: 'inherit',
-              cursor: 'pointer',
             }}
           >
             <Box
@@ -680,24 +708,26 @@ export default function App() {
                     {selectedImage.name}
                   </Typography>
                 </MuiBreadcrumbs>
-                {canEditContent && (
-                  <Box sx={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                <Box sx={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                  {canEditContent && (
                     <Button
                       variant="contained"
-                      startIcon={<CreateNewFolderIcon />}
-                      onClick={() => setDialogOpen(true)}
+                      startIcon={<EditIcon />}
+                      onClick={() => setImageEditOpen(true)}
                     >
-                      Add/Edit Categories
+                      Edit Details
                     </Button>
+                  )}
+                  <Tooltip title="Copy shareable link to clipboard">
                     <Button
                       variant="outlined"
-                      startIcon={<AddPhotoAlternateIcon />}
-                      onClick={() => setUploadOpen(true)}
+                      startIcon={<LinkIcon />}
+                      onClick={copyShareLink}
                     >
-                      Upload Image
+                      Share View
                     </Button>
-                  </Box>
-                )}
+                  </Tooltip>
+                </Box>
               </Box>
 
               <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
@@ -708,24 +738,13 @@ export default function App() {
                 />
               </Paper>
 
-              <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ mt: 2 }}>
                 <Typography variant="body2" color="text.secondary">
                   Use your scroll wheel to zoom, or click and drag to pan.
                   Use the rotation buttons to rotate the image, or pinch-rotate
                   on touch devices. The mini-map in the bottom-right corner
                   shows your current viewport.
                 </Typography>
-                <Tooltip title="Copy shareable link to clipboard">
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<LinkIcon />}
-                    onClick={copyShareLink}
-                    sx={{ flexShrink: 0, ml: 2 }}
-                  >
-                    Share View
-                  </Button>
-                </Tooltip>
               </Box>
             </>
           ) : (
@@ -886,6 +905,17 @@ export default function App() {
         onMove={handleMoveCategory}
         category={movingCategory}
         categories={categories}
+        onAddCategory={addCategoryInline}
+      />
+
+      {/* Image edit modal (viewer page) */}
+      <EditImageModal
+        open={imageEditOpen}
+        onClose={() => setImageEditOpen(false)}
+        onSave={handleSaveViewerImage}
+        image={selectedApiImage}
+        categories={categories}
+        programs={programs}
         onAddCategory={addCategoryInline}
       />
 
