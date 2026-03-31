@@ -55,34 +55,78 @@ async def _process_bulk_import(job_id: int, file_entries: list[tuple[str, str]])
     semaphore = asyncio.Semaphore(_MAX_CONCURRENCY)
 
     async def _process_one(original_filename: str, stored_path: str) -> None:
-        async with async_session() as db:
-            # Reload job to get current category_id
-            job = await db.get(BulkImportJob, job_id)
-            if job is None:
-                return
+        try:
+            async with async_session() as db:
+                # Reload job to get current category_id
+                job = await db.get(BulkImportJob, job_id)
+                if job is None:
+                    return
 
-            label = Path(original_filename).stem
-            src = SourceImage(
-                original_filename=original_filename,
-                stored_path=stored_path,
-                status="pending",
-                label=label,
-                category_id=job.category_id,
-                copyright="Public Domain",
-            )
-            db.add(src)
-            await db.commit()
-            await db.refresh(src)
-
-        # Process through VIPS pipeline (this acquires the semaphore)
-        async with semaphore:
-            try:
-                await process_source_image(src.id)
-            except Exception as exc:
-                logger.exception(
-                    "Bulk import: failed to process %s", original_filename
+                label = Path(original_filename).stem
+                src = SourceImage(
+                    original_filename=original_filename,
+                    stored_path=stored_path,
+                    status="pending",
+                    label=label,
+                    category_id=job.category_id,
+                    copyright="Public Domain",
                 )
-                error_entry = [{"filename": original_filename, "error": str(exc)}]
+                db.add(src)
+                await db.commit()
+                await db.refresh(src)
+
+            # Process through VIPS pipeline (this acquires the semaphore)
+            async with semaphore:
+                try:
+                    await process_source_image(src.id)
+                except Exception as exc:
+                    logger.exception(
+                        "Bulk import: failed to process %s", original_filename
+                    )
+                    error_entry = [{"filename": original_filename, "error": str(exc)}]
+                    async with async_session() as db:
+                        await db.execute(
+                            update(BulkImportJob)
+                            .where(BulkImportJob.id == job_id)
+                            .values(
+                                failed_count=BulkImportJob.failed_count + 1,
+                                errors=func.coalesce(BulkImportJob.errors, cast([], JSONB_type)) + cast(error_entry, JSONB_type),
+                            )
+                        )
+                        await db.commit()
+                    return
+
+                # process_source_image catches its own exceptions internally
+                # and sets SourceImage.status to "failed". Check for that.
+                async with async_session() as db:
+                    src_check = await db.get(SourceImage, src.id)
+                    if src_check is not None and src_check.status == "failed":
+                        error_entry = [{"filename": original_filename, "error": src_check.error_message or "Processing failed"}]
+                        await db.execute(
+                            update(BulkImportJob)
+                            .where(BulkImportJob.id == job_id)
+                            .values(
+                                failed_count=BulkImportJob.failed_count + 1,
+                                errors=func.coalesce(BulkImportJob.errors, cast([], JSONB_type)) + cast(error_entry, JSONB_type),
+                            )
+                        )
+                        await db.commit()
+                    else:
+                        await db.execute(
+                            update(BulkImportJob)
+                            .where(BulkImportJob.id == job_id)
+                            .values(completed_count=BulkImportJob.completed_count + 1)
+                        )
+                        await db.commit()
+        except Exception as exc:
+            # Catch errors from SourceImage creation or any other unexpected
+            # failure so that gather(return_exceptions=True) doesn't silently
+            # swallow them without updating job counters.
+            logger.exception(
+                "Bulk import: unexpected error for %s", original_filename
+            )
+            error_entry = [{"filename": original_filename, "error": str(exc)}]
+            try:
                 async with async_session() as db:
                     await db.execute(
                         update(BulkImportJob)
@@ -93,30 +137,11 @@ async def _process_bulk_import(job_id: int, file_entries: list[tuple[str, str]])
                         )
                     )
                     await db.commit()
-                return
-
-            # process_source_image catches its own exceptions internally
-            # and sets SourceImage.status to "failed". Check for that.
-            async with async_session() as db:
-                src_check = await db.get(SourceImage, src.id)
-                if src_check is not None and src_check.status == "failed":
-                    error_entry = [{"filename": original_filename, "error": src_check.error_message or "Processing failed"}]
-                    await db.execute(
-                        update(BulkImportJob)
-                        .where(BulkImportJob.id == job_id)
-                        .values(
-                            failed_count=BulkImportJob.failed_count + 1,
-                            errors=func.coalesce(BulkImportJob.errors, cast([], JSONB_type)) + cast(error_entry, JSONB_type),
-                        )
-                    )
-                    await db.commit()
-                else:
-                    await db.execute(
-                        update(BulkImportJob)
-                        .where(BulkImportJob.id == job_id)
-                        .values(completed_count=BulkImportJob.completed_count + 1)
-                    )
-                    await db.commit()
+            except Exception:
+                logger.exception(
+                    "Bulk import: failed to update job counters for %s",
+                    original_filename,
+                )
 
     # Mark job as processing
     async with async_session() as db:
@@ -172,61 +197,70 @@ async def bulk_import_images(
 
     file_entries: list[tuple[str, str]] = []  # (original_filename, stored_path)
 
-    for upload in files:
-        if not upload.filename:
-            continue
+    try:
+        for upload in files:
+            if not upload.filename:
+                continue
 
-        contents = await upload.read()
+            contents = await upload.read()
 
-        # Handle zip files
-        if upload.filename.lower().endswith(".zip"):
-            # Write zip to a temp file, then extract images
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
-                tmp.write(contents)
-                tmp_path = tmp.name
+            # Handle zip files
+            if upload.filename.lower().endswith(".zip"):
+                # Write zip to a temp file, then extract images
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+                    tmp.write(contents)
+                    tmp_path = tmp.name
 
+                try:
+                    with zipfile.ZipFile(tmp_path, "r") as zf:
+                        for zip_entry in zf.namelist():
+                            # Skip directories and hidden/system files
+                            if zip_entry.endswith("/") or zip_entry.startswith("__MACOSX"):
+                                continue
+                            basename = os.path.basename(zip_entry)
+                            if not basename or basename.startswith("."):
+                                continue
+                            if not _is_image_filename(basename):
+                                continue
+
+                            ext = Path(basename).suffix or ".bin"
+                            unique_name = f"{uuid.uuid4().hex}{ext}"
+                            stored_path = os.path.join(
+                                settings.source_images_dir, unique_name
+                            )
+
+                            with zf.open(zip_entry) as src, open(stored_path, "wb") as dst:
+                                dst.write(src.read())
+
+                            file_entries.append((basename, stored_path))
+                except zipfile.BadZipFile:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"File '{upload.filename}' is not a valid zip archive",
+                    )
+                finally:
+                    os.unlink(tmp_path)
+            else:
+                # Regular image file
+                if not _is_image_filename(upload.filename):
+                    continue  # silently skip non-image files
+
+                ext = os.path.splitext(upload.filename)[1] or ".bin"
+                unique_name = f"{uuid.uuid4().hex}{ext}"
+                stored_path = os.path.join(settings.source_images_dir, unique_name)
+
+                with open(stored_path, "wb") as f:
+                    f.write(contents)
+
+                file_entries.append((upload.filename, stored_path))
+    except HTTPException:
+        # Clean up any files already stored before re-raising
+        for _, stored_path in file_entries:
             try:
-                with zipfile.ZipFile(tmp_path, "r") as zf:
-                    for zip_entry in zf.namelist():
-                        # Skip directories and hidden/system files
-                        if zip_entry.endswith("/") or zip_entry.startswith("__MACOSX"):
-                            continue
-                        basename = os.path.basename(zip_entry)
-                        if not basename or basename.startswith("."):
-                            continue
-                        if not _is_image_filename(basename):
-                            continue
-
-                        ext = Path(basename).suffix or ".bin"
-                        unique_name = f"{uuid.uuid4().hex}{ext}"
-                        stored_path = os.path.join(
-                            settings.source_images_dir, unique_name
-                        )
-
-                        with zf.open(zip_entry) as src, open(stored_path, "wb") as dst:
-                            dst.write(src.read())
-
-                        file_entries.append((basename, stored_path))
-            except zipfile.BadZipFile:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"File '{upload.filename}' is not a valid zip archive",
-                )
-            finally:
-                os.unlink(tmp_path)
-        else:
-            # Regular image file
-            if not _is_image_filename(upload.filename):
-                continue  # silently skip non-image files
-
-            ext = os.path.splitext(upload.filename)[1] or ".bin"
-            unique_name = f"{uuid.uuid4().hex}{ext}"
-            stored_path = os.path.join(settings.source_images_dir, unique_name)
-
-            with open(stored_path, "wb") as f:
-                f.write(contents)
-
-            file_entries.append((upload.filename, stored_path))
+                os.unlink(stored_path)
+            except OSError:
+                pass
+        raise
 
     if not file_entries:
         raise HTTPException(
