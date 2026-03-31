@@ -264,6 +264,14 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
     return sorted
   }, [filteredImages, sortColumn, sortDirection, getCategoryLabel, getProgramNames])
 
+  // Auto-correct currentPage when dataset shrinks (e.g. after delete/bulk-delete)
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(sortedImages.length / rowsPerPage) - 1)
+    if (currentPage > maxPage) {
+      setCurrentPage(maxPage)
+    }
+  }, [sortedImages.length, rowsPerPage, currentPage])
+
   const handleFilterChange = (column: string, value: string) => {
     setFilters((prev) => ({ ...prev, [column]: value }))
     setCurrentPage(0)
