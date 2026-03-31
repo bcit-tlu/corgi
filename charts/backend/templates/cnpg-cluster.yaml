@@ -13,7 +13,7 @@ spec:
       database: {{ .Values.cnpg.database }}
       owner: {{ .Values.cnpg.owner }}
       secret:
-        name: {{ include "corgi-backend.fullname" . }}-db-app
+        name: {{ include "corgi-backend.fullname" . }}-db-bootstrap
       postInitApplicationSQLRefs:
         configMapRefs:
           - name: {{ include "corgi-backend.fullname" . }}-initdb
@@ -22,7 +22,7 @@ spec:
             key: seed.sql
 
   superuserSecret:
-    name: {{ include "corgi-backend.fullname" . }}-db-superuser
+    name: {{ include "corgi-backend.fullname" . }}-db-superuser-bootstrap
 
   storage:
     storageClass: {{ .Values.cnpg.storage.storageClass }}
