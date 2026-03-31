@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Annotated
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -48,7 +50,7 @@ class CategoryBase(BaseModel):
     parent_id: int | None = None
     program: str | None = None
     status: str | None = "active"
-    metadata_extra: dict | None = Field(default=None, validation_alias="metadata_")
+    metadata_extra: Annotated[dict | None, Field(validation_alias="metadata_")] = None
 
 
 class CategoryCreate(CategoryBase):
@@ -87,7 +89,7 @@ class ImageBase(BaseModel):
     note: str | None = None
     program_ids: list[int] = []
     active: bool = True
-    metadata_extra: dict | None = Field(default=None, validation_alias="metadata_")
+    metadata_extra: Annotated[dict | None, Field(validation_alias="metadata_")] = None
 
 
 class ImageCreate(ImageBase):
@@ -208,7 +210,7 @@ class UserBase(BaseModel):
     email: str
     role: str = "student"
     program_id: int | None = None
-    metadata_extra: dict | None = Field(default=None, validation_alias="metadata_")
+    metadata_extra: Annotated[dict | None, Field(validation_alias="metadata_")] = None
 
 
 class UserCreate(UserBase):
