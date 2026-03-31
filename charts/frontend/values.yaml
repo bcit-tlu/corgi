@@ -1,0 +1,30 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/bcit-tlu/corgi-frontend
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+env:
+  BACKEND_URL: http://corgi-backend:8000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+networkPolicy:
+  enabled: true
+  backendPodLabel: corgi-backend
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
