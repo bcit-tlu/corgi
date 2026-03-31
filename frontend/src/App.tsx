@@ -625,8 +625,9 @@ export default function App() {
               <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="text.secondary">
                   Use your scroll wheel to zoom, or click and drag to pan.
-                  Pinch-to-zoom is supported on touch devices. The mini-map in
-                  the bottom-right corner shows your current viewport.
+                  Use the rotation buttons to rotate the image, or pinch-rotate
+                  on touch devices. The mini-map in the bottom-right corner
+                  shows your current viewport.
                 </Typography>
                 <Tooltip title="Copy shareable link to clipboard">
                   <Button

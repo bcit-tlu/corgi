@@ -54,6 +54,9 @@ export default function ImageViewer({
       navigatorPosition: 'BOTTOM_RIGHT',
       navigatorSizeRatio: 0.15,
       gestureSettingsMouse: { scrollToZoom: true },
+      // Rotation controls
+      showRotationControl: true,
+      gestureSettingsTouch: { pinchRotate: true },
     })
 
     const viewer = viewerRef.current
