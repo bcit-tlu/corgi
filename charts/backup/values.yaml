@@ -18,6 +18,7 @@ env:
 persistence:
   data:
     enabled: true
+    existingClaim: ""  # Set to backend PVC name to share its data volume
     storageClass: longhorn
     size: 5Gi
     accessModes:

@@ -24,7 +24,10 @@ spec:
               protocol: TCP
           env:
             - name: DATABASE_URL
-              value: {{ .Values.env.DATABASE_URL | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "corgi-backend.fullname" . }}
+                  key: DATABASE_URL
             - name: SOURCE_IMAGES_DIR
               value: {{ .Values.env.SOURCE_IMAGES_DIR | quote }}
             - name: TILES_DIR
