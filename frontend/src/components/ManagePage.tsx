@@ -10,16 +10,19 @@ import ListItemText from '@mui/material/ListItemText'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
+import Switch from '@mui/material/Switch'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import TableSortLabel from '@mui/material/TableSortLabel'
 import Typography from '@mui/material/Typography'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder'
 import DeleteIcon from '@mui/icons-material/Delete'
+import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove'
 import InfoIcon from '@mui/icons-material/Info'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -29,6 +32,7 @@ import type { Category, Program } from '../types'
 import BulkEditImagesModal from './BulkEditImagesModal'
 import EditImageModal from './EditImageModal'
 import type { ImageFormData } from './EditImageModal'
+import MoveImageDialog from './MoveImageDialog'
 import UploadImageModal from './UploadImageModal'
 
 interface CategoryPathSegment {
@@ -95,6 +99,9 @@ function CategoryBreadcrumb({
   )
 }
 
+type SortableColumn = 'id' | 'label' | 'category' | 'copyright' | 'origin' | 'program' | 'active' | 'created_at' | 'updated_at'
+type SortDirection = 'asc' | 'desc'
+
 interface ManagePageProps {
   categories: Category[]
   onViewImage?: (image: ApiImage) => void
@@ -110,6 +117,10 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
+  // Sort state
+  const [sortColumn, setSortColumn] = useState<SortableColumn>('id')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+
   const categoryPaths = useMemo(() => buildCategoryPaths(categories), [categories])
 
   // Edit modal state
@@ -121,6 +132,10 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
 
   // Upload modal state
   const [uploadOpen, setUploadOpen] = useState(false)
+
+  // Move modal state
+  const [moveOpen, setMoveOpen] = useState(false)
+  const [movingImage, setMovingImage] = useState<ApiImage | null>(null)
 
   // Action menu state
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
@@ -142,6 +157,69 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
   useEffect(() => {
     loadImages()
   }, [loadImages])
+
+  // Sort handler
+  const handleSort = (column: SortableColumn) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortColumn(column)
+      setSortDirection('asc')
+    }
+  }
+
+  // Helper to get category label for sorting
+  const getCategoryLabel = useCallback((img: ApiImage): string => {
+    if (img.category_id == null) return ''
+    const seg = categoryPaths.get(img.category_id)
+    return seg ? seg.category.label : ''
+  }, [categoryPaths])
+
+  // Helper to get program names for sorting
+  const getProgramNames = useCallback((img: ApiImage): string => {
+    return img.program_ids
+      .map((pid) => programs.find((p) => p.id === pid)?.name ?? '')
+      .join(', ')
+  }, [programs])
+
+  // Sorted images
+  const sortedImages = useMemo(() => {
+    const sorted = [...images]
+    sorted.sort((a, b) => {
+      let cmp = 0
+      switch (sortColumn) {
+        case 'id':
+          cmp = a.id - b.id
+          break
+        case 'label':
+          cmp = a.label.localeCompare(b.label)
+          break
+        case 'category':
+          cmp = getCategoryLabel(a).localeCompare(getCategoryLabel(b))
+          break
+        case 'copyright':
+          cmp = (a.copyright ?? '').localeCompare(b.copyright ?? '')
+          break
+        case 'origin':
+          cmp = (a.origin ?? '').localeCompare(b.origin ?? '')
+          break
+        case 'program':
+          cmp = getProgramNames(a).localeCompare(getProgramNames(b))
+          break
+        case 'active':
+          cmp = Number(a.active) - Number(b.active)
+          break
+        case 'created_at':
+          cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          break
+        case 'updated_at':
+          cmp = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
+          break
+      }
+      return sortDirection === 'asc' ? cmp : -cmp
+    })
+    return sorted
+  }, [images, sortColumn, sortDirection, getCategoryLabel, getProgramNames])
 
   // Selection handlers
   const handleSelectAll = (checked: boolean) => {
@@ -200,7 +278,7 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
     }
   }
 
-  // Row click → open edit modal
+  // Row click -> open edit modal
   const handleRowClick = (image: ApiImage) => {
     setEditingImage(image)
     setEditOpen(true)
@@ -219,6 +297,16 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
     }
   }
 
+  // Toggle active status via switch
+  const handleToggleActive = async (image: ApiImage) => {
+    try {
+      await updateImage(image.id, { active: !image.active })
+      await loadImages()
+    } catch (err) {
+      console.error('Failed to toggle image status', err)
+    }
+  }
+
   // Delete image
   const handleDeleteImage = async (image: ApiImage) => {
     try {
@@ -231,6 +319,20 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
       await loadImages()
     } catch (err) {
       console.error('Failed to delete image', err)
+    }
+  }
+
+  // Move image handler
+  const handleMoveImage = async (categoryId: number | null) => {
+    if (!movingImage) return
+    try {
+      await updateImage(movingImage.id, { category_id: categoryId })
+      setMoveOpen(false)
+      setMovingImage(null)
+      await loadImages()
+      onCategoriesChanged?.()
+    } catch (err) {
+      console.error('Failed to move image', err)
     }
   }
 
@@ -263,6 +365,14 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
     handleMenuClose()
   }
 
+  const handleMenuMove = () => {
+    if (menuImage) {
+      setMovingImage(menuImage)
+      setMoveOpen(true)
+    }
+    handleMenuClose()
+  }
+
   const handleMenuDelete = () => {
     if (menuImage) {
       handleDeleteImage(menuImage)
@@ -286,15 +396,14 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, flexShrink: 0, alignItems: 'center' }}>
           {selected.size > 0 && (
-            <Link
-              component="button"
-              variant="body2"
-              underline="always"
+            <Button
+              variant="contained"
+              color="secondary"
+              size="small"
               onClick={() => setBulkEditOpen(true)}
-              sx={{ cursor: 'pointer' }}
             >
-              bulk edit ({selected.size} selected)
-            </Link>
+              Bulk Edit ({selected.size} selected)
+            </Button>
           )}
           {onNewCategory && (
             <Button
@@ -331,19 +440,92 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
                     onChange={(e) => handleSelectAll(e.target.checked)}
                   />
                 </TableCell>
-                <TableCell>ID</TableCell>
-                <TableCell>Label</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Copyright</TableCell>
-                <TableCell>Origin</TableCell>
-                <TableCell>Program</TableCell>
-                <TableCell>Active</TableCell>
-                <TableCell>Created</TableCell>
+                <TableCell sortDirection={sortColumn === 'id' ? sortDirection : false}>
+                  <TableSortLabel
+                    active={sortColumn === 'id'}
+                    direction={sortColumn === 'id' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('id')}
+                  >
+                    ID
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={sortColumn === 'label' ? sortDirection : false}>
+                  <TableSortLabel
+                    active={sortColumn === 'label'}
+                    direction={sortColumn === 'label' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('label')}
+                  >
+                    Name
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={sortColumn === 'category' ? sortDirection : false}>
+                  <TableSortLabel
+                    active={sortColumn === 'category'}
+                    direction={sortColumn === 'category' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('category')}
+                  >
+                    Category
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={sortColumn === 'copyright' ? sortDirection : false}>
+                  <TableSortLabel
+                    active={sortColumn === 'copyright'}
+                    direction={sortColumn === 'copyright' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('copyright')}
+                  >
+                    Copyright
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={sortColumn === 'origin' ? sortDirection : false}>
+                  <TableSortLabel
+                    active={sortColumn === 'origin'}
+                    direction={sortColumn === 'origin' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('origin')}
+                  >
+                    Note
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={sortColumn === 'program' ? sortDirection : false}>
+                  <TableSortLabel
+                    active={sortColumn === 'program'}
+                    direction={sortColumn === 'program' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('program')}
+                  >
+                    Program
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={sortColumn === 'active' ? sortDirection : false}>
+                  <TableSortLabel
+                    active={sortColumn === 'active'}
+                    direction={sortColumn === 'active' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('active')}
+                  >
+                    Status
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={sortColumn === 'created_at' ? sortDirection : false}>
+                  <TableSortLabel
+                    active={sortColumn === 'created_at'}
+                    direction={sortColumn === 'created_at' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('created_at')}
+                  >
+                    Created
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={sortColumn === 'updated_at' ? sortDirection : false}>
+                  <TableSortLabel
+                    active={sortColumn === 'updated_at'}
+                    direction={sortColumn === 'updated_at' ? sortDirection : 'asc'}
+                    onClick={() => handleSort('updated_at')}
+                  >
+                    Modified
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {images.map((img) => (
+              {sortedImages.map((img) => (
                 <TableRow
                   key={img.id}
                   hover
@@ -380,9 +562,20 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
                           .join(', ')
                       : '—'}
                   </TableCell>
-                  <TableCell>{img.active ? 'Yes' : 'No'}</TableCell>
+                  <TableCell
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Switch
+                      size="small"
+                      checked={img.active}
+                      onChange={() => handleToggleActive(img)}
+                    />
+                  </TableCell>
                   <TableCell>
                     {new Date(img.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(img.updated_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell
                     align="right"
@@ -420,6 +613,12 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
             <InfoIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Details</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleMenuMove}>
+          <ListItemIcon>
+            <DriveFileMoveIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Move</ListItemText>
         </MenuItem>
         <MenuItem onClick={handleMenuDelete}>
           <ListItemIcon>
@@ -462,6 +661,19 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
         categories={categories}
         programs={programs}
         selectedCount={selected.size}
+        onAddCategory={onAddCategory}
+      />
+
+      {/* Move image modal */}
+      <MoveImageDialog
+        open={moveOpen}
+        onClose={() => {
+          setMoveOpen(false)
+          setMovingImage(null)
+        }}
+        onMove={handleMoveImage}
+        image={movingImage}
+        categories={categories}
         onAddCategory={onAddCategory}
       />
     </Box>

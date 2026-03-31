@@ -3,7 +3,6 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
 import CircularProgress from '@mui/material/CircularProgress'
-import Link from '@mui/material/Link'
 import Paper from '@mui/material/Paper'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
@@ -199,15 +198,14 @@ export default function PeoplePage() {
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, flexShrink: 0, alignItems: 'center' }}>
           {selected.size > 0 && (
-            <Link
-              component="button"
-              variant="body2"
-              underline="always"
+            <Button
+              variant="contained"
+              color="secondary"
+              size="small"
               onClick={() => setBulkEditOpen(true)}
-              sx={{ cursor: 'pointer' }}
             >
-              bulk edit ({selected.size} selected)
-            </Link>
+              Bulk Edit ({selected.size} selected)
+            </Button>
           )}
           <Button
             variant="contained"
