@@ -473,6 +473,7 @@ END $$;
                     "-p", db["port"],
                     "-U", db["user"],
                     "-d", db["dbname"],
+                    "--set", "ON_ERROR_STOP=on",
                     "-f", str(dump_path),
                 ],
                 env=pg,
