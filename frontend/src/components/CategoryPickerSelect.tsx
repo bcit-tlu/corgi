@@ -185,7 +185,7 @@ export default function CategoryPickerSelect({
                       }}
                       sx={{ p: 0.5 }}
                     >
-                      <DeleteIcon fontSize="small" color="error" />
+                      <DeleteIcon fontSize="small" color="primary" />
                     </IconButton>
                   </Tooltip>
                 )}

@@ -413,9 +413,35 @@ export default function App() {
       {/* App bar */}
       <AppBar position="static" elevation={1}>
         <Toolbar>
-          <Typography variant="h6" component="h1" sx={{ mr: 2 }}>
-            Corgi
-          </Typography>
+          <Box
+            component="a"
+            href="/"
+            onClick={(e: React.MouseEvent) => {
+              e.preventDefault()
+              setPage('browse')
+              clearImage()
+              setPath([])
+            }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              mr: 2,
+              textDecoration: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+            }}
+          >
+            <Box
+              component="img"
+              src="/favicon.svg"
+              alt="Corgi"
+              sx={{ height: 32, width: 32 }}
+            />
+            <Typography variant="h6" component="h1">
+              Corgi
+            </Typography>
+          </Box>
           <Tabs
             value={page}
             onChange={(_, v: Page) => {
@@ -505,7 +531,7 @@ export default function App() {
                     <Link
                       component="button"
                       variant="body2"
-                      color="error"
+                      color="primary"
                       onClick={() => {
                         setProfileOpen(false)
                         logout()
@@ -530,7 +556,7 @@ export default function App() {
         sx={{
           flexGrow: 1,
           py: 3,
-          bgcolor: page === 'people' || page === 'admin' ? '#d1cdcd' : undefined,
+          bgcolor: page === 'people' || page === 'admin' ? '#DAC7B5' : undefined,
         }}
       >
         <Container maxWidth="lg">
@@ -795,7 +821,7 @@ export default function App() {
         sx={{
           py: 2,
           textAlign: 'center',
-          bgcolor: 'grey.100',
+          bgcolor: 'background.default',
           borderTop: 1,
           borderColor: 'divider',
         }}

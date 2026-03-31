@@ -96,7 +96,7 @@ export default function UserManagementPanel({
                       <IconButton
                         edge="end"
                         aria-label="delete"
-                        color="error"
+                        color="primary"
                         onClick={() => onDeleteUser(user.id)}
                       >
                         <DeleteIcon />

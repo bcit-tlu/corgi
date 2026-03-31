@@ -123,7 +123,7 @@ export default function ProgramManagementModal({
                       </IconButton>
                       <IconButton
                         size="small"
-                        color="error"
+                        color="primary"
                         onClick={() => onDelete(p.id)}
                         aria-label="delete program"
                       >
