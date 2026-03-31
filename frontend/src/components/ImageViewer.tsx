@@ -6,6 +6,7 @@ export interface ViewportState {
   zoom: number
   x: number
   y: number
+  rotation?: number
 }
 
 interface ImageViewerProps {
@@ -33,7 +34,8 @@ export default function ImageViewer({
     if (!viewer?.viewport) return
     const zoom = viewer.viewport.getZoom()
     const center = viewer.viewport.getCenter()
-    onViewportChangeRef.current?.({ zoom, x: center.x, y: center.y })
+    const rotation = viewer.viewport.getRotation()
+    onViewportChangeRef.current?.({ zoom, x: center.x, y: center.y, rotation })
   }, [])
 
   useEffect(() => {
@@ -109,6 +111,9 @@ export default function ImageViewer({
       navigatorPosition: 'BOTTOM_RIGHT',
       navigatorSizeRatio: 0.15,
       gestureSettingsMouse: { scrollToZoom: true },
+      // Rotation controls
+      showRotationControl: true,
+      gestureSettingsTouch: { pinchRotate: true },
     })
 
     const viewer = viewerRef.current
@@ -121,6 +126,9 @@ export default function ImageViewer({
           new OpenSeadragon.Point(initialViewport.x, initialViewport.y),
           true,
         )
+        if (initialViewport.rotation) {
+          viewer.viewport.setRotation(initialViewport.rotation, true)
+        }
       })
     }
 

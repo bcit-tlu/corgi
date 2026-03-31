@@ -169,7 +169,14 @@ export default function App() {
           const x = parseFloat(px)
           const y = parseFloat(py)
           if (!Number.isNaN(zoom) && !Number.isNaN(x) && !Number.isNaN(y)) {
-            pendingViewport.current = { zoom, x, y }
+            const rot = params.get('rotation')
+            const rotation = rot ? parseFloat(rot) : undefined
+            pendingViewport.current = {
+              zoom,
+              x,
+              y,
+              rotation: rotation && !Number.isNaN(rotation) ? rotation : undefined,
+            }
           }
         }
       }
@@ -270,6 +277,9 @@ export default function App() {
         params.set('zoom', viewportState.zoom.toFixed(4))
         params.set('x', viewportState.x.toFixed(6))
         params.set('y', viewportState.y.toFixed(6))
+        if (viewportState.rotation) {
+          params.set('rotation', viewportState.rotation.toFixed(1))
+        }
       }
     }
     const qs = params.toString()
@@ -625,8 +635,9 @@ export default function App() {
               <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="text.secondary">
                   Use your scroll wheel to zoom, or click and drag to pan.
-                  Pinch-to-zoom is supported on touch devices. The mini-map in
-                  the bottom-right corner shows your current viewport.
+                  Use the rotation buttons to rotate the image, or pinch-rotate
+                  on touch devices. The mini-map in the bottom-right corner
+                  shows your current viewport.
                 </Typography>
                 <Tooltip title="Copy shareable link to clipboard">
                   <Button
