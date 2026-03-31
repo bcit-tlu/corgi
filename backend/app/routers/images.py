@@ -78,7 +78,7 @@ async def bulk_update_images(
     stmt = select(Image).where(Image.id.in_(body.image_ids))
     result = await db.execute(stmt)
     images = result.scalars().all()
-    if len(images) != len(body.image_ids):
+    if len(images) != len(set(body.image_ids)):
         raise HTTPException(status_code=404, detail="One or more images not found")
     update_data = body.model_dump(exclude_unset=True, exclude={"image_ids"})
     for img in images:
@@ -121,7 +121,7 @@ async def bulk_delete_images(
     stmt = select(Image).where(Image.id.in_(body.image_ids))
     result = await db.execute(stmt)
     images = result.scalars().all()
-    if len(images) != len(body.image_ids):
+    if len(images) != len(set(body.image_ids)):
         raise HTTPException(status_code=404, detail="One or more images not found")
     for img in images:
         await db.delete(img)
