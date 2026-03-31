@@ -12,7 +12,7 @@ import type { Category } from '../types'
 interface MoveImageDialogProps {
   open: boolean
   onClose: () => void
-  onMove: (categoryId: number | null) => void
+  onMove: (categoryId: number | null) => Promise<void>
   image: ApiImage | null
   categories: Category[]
   onAddCategory?: (label: string, parentId: number | null) => Promise<void>
@@ -27,13 +27,19 @@ export default function MoveImageDialog({
   onAddCategory,
 }: MoveImageDialogProps) {
   const [newCategoryId, setNewCategoryId] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const handleEnter = useCallback(() => {
     setNewCategoryId(image?.category_id ?? null)
   }, [image])
 
-  const handleMove = () => {
-    onMove(newCategoryId)
+  const handleMove = async () => {
+    setSaving(true)
+    try {
+      await onMove(newCategoryId)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -54,9 +60,9 @@ export default function MoveImageDialog({
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleMove} variant="contained">
-          Move
+        <Button onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button onClick={handleMove} variant="contained" disabled={saving}>
+          {saving ? 'Moving…' : 'Move'}
         </Button>
       </DialogActions>
     </Dialog>
