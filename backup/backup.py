@@ -15,7 +15,6 @@ Usage:
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import logging
 import os
@@ -170,12 +169,8 @@ def run_backup() -> Path | None:
 
         # 2. Filesystem snapshot -----------------------------------------------
         data_src = Path(DATA_DIR)
-        if data_src.exists() and any(data_src.iterdir()):
-            log.info("Archiving filesystem data from %s …", DATA_DIR)
-            data_dest = work / "data"
-            shutil.copytree(str(data_src), str(data_dest), dirs_exist_ok=True)
-            log.info("Filesystem data copied")
-        else:
+        has_data = data_src.exists() and any(data_src.iterdir())
+        if not has_data:
             log.warning("Data directory %s is empty or missing – skipping filesystem snapshot", DATA_DIR)
 
         # 3. Manifest ----------------------------------------------------------
@@ -199,12 +194,17 @@ def run_backup() -> Path | None:
         manifest_path = work / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2))
 
-        # 4. Create tar.gz ----------------------------------------------------
+        # 4. Create tar.gz (stream filesystem data directly into archive) ----
         archive_name = f"{snapshot_name}.tar.gz"
         archive_path = Path(tmpdir) / archive_name
         log.info("Creating archive %s …", archive_name)
         with tarfile.open(str(archive_path), "w:gz") as tar:
+            # Add db dump and manifest from the work directory
             tar.add(str(work), arcname=snapshot_name)
+            # Stream filesystem data directly into the archive (avoids 2x disk copy)
+            if has_data:
+                log.info("Streaming filesystem data from %s into archive …", DATA_DIR)
+                tar.add(str(data_src), arcname=f"{snapshot_name}/data")
         archive_size = archive_path.stat().st_size
         log.info("Archive created: %s (%s bytes)", archive_name, archive_size)
 
@@ -237,7 +237,8 @@ def run_backup() -> Path | None:
             return final
 
     log.info("Backup %s completed successfully", snapshot_name)
-    return archive_path
+    # archive_path inside tmpdir is gone; return a sentinel Path for truthy check
+    return Path(archive_name)
 
 
 def _enforce_retention(client) -> None:
@@ -380,7 +381,7 @@ def _restore_from_archive(archive_path: Path) -> bool:
         # Extract ---------------------------------------------------------------
         log.info("Extracting archive …")
         with tarfile.open(str(archive_path), "r:gz") as tar:
-            tar.extractall(path=tmpdir)
+            tar.extractall(path=tmpdir, filter="data")
 
         # Find the snapshot directory (first dir inside the archive)
         entries = list(Path(tmpdir).iterdir())
