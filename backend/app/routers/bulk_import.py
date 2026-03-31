@@ -14,7 +14,9 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy import select, update
+from sqlalchemy import cast, select, update
+from sqlalchemy.dialects.postgresql import JSONB as JSONB_type
+from sqlalchemy.sql import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import require_role
@@ -80,23 +82,17 @@ async def _process_bulk_import(job_id: int, file_entries: list[tuple[str, str]])
                 logger.exception(
                     "Bulk import: failed to process %s", original_filename
                 )
+                error_entry = [{"filename": original_filename, "error": str(exc)}]
                 async with async_session() as db:
                     await db.execute(
                         update(BulkImportJob)
                         .where(BulkImportJob.id == job_id)
-                        .values(failed_count=BulkImportJob.failed_count + 1)
+                        .values(
+                            failed_count=BulkImportJob.failed_count + 1,
+                            errors=func.coalesce(BulkImportJob.errors, cast([], JSONB_type)) + cast(error_entry, JSONB_type),
+                        )
                     )
                     await db.commit()
-                    # Append error details
-                    job = await db.get(BulkImportJob, job_id)
-                    if job is not None:
-                        errors = list(job.errors or [])
-                        errors.append({
-                            "filename": original_filename,
-                            "error": str(exc),
-                        })
-                        job.errors = errors
-                        await db.commit()
                 return
 
             # process_source_image catches its own exceptions internally
@@ -104,21 +100,16 @@ async def _process_bulk_import(job_id: int, file_entries: list[tuple[str, str]])
             async with async_session() as db:
                 src_check = await db.get(SourceImage, src.id)
                 if src_check is not None and src_check.status == "failed":
+                    error_entry = [{"filename": original_filename, "error": src_check.error_message or "Processing failed"}]
                     await db.execute(
                         update(BulkImportJob)
                         .where(BulkImportJob.id == job_id)
-                        .values(failed_count=BulkImportJob.failed_count + 1)
+                        .values(
+                            failed_count=BulkImportJob.failed_count + 1,
+                            errors=func.coalesce(BulkImportJob.errors, cast([], JSONB_type)) + cast(error_entry, JSONB_type),
+                        )
                     )
                     await db.commit()
-                    job = await db.get(BulkImportJob, job_id)
-                    if job is not None:
-                        errors = list(job.errors or [])
-                        errors.append({
-                            "filename": original_filename,
-                            "error": src_check.error_message or "Processing failed",
-                        })
-                        job.errors = errors
-                        await db.commit()
                 else:
                     await db.execute(
                         update(BulkImportJob)
