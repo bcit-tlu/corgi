@@ -190,7 +190,7 @@ export default function BulkEditImagesModal({
             ))}
           </Select>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-            Hold Ctrl (or Cmd on Mac) to select multiple programs.
+            Multiple programs can be selected.
           </Typography>
         </FormControl>
         <FormControlLabel
