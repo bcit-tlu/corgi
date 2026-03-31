@@ -14,9 +14,11 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import type { Category } from '../types'
 import { MAX_DEPTH } from '../types'
 import AddCategoryDialog from './AddCategoryDialog'
+import EditCategoryDialog from './EditCategoryDialog'
 
 interface FlatOption {
   id: number
@@ -48,6 +50,7 @@ interface ManageCategoriesDialogProps {
   categories: Category[]
   onAddCategory: (label: string, parentId: number | null) => Promise<void>
   onDeleteCategory: (categoryId: number) => Promise<void>
+  onEditCategory?: (categoryId: number, newLabel: string) => Promise<void>
 }
 
 export default function ManageCategoriesDialog({
@@ -56,6 +59,7 @@ export default function ManageCategoriesDialog({
   categories,
   onAddCategory,
   onDeleteCategory,
+  onEditCategory,
 }: ManageCategoriesDialogProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [addParentId, setAddParentId] = useState<number | null>(null)
@@ -63,6 +67,9 @@ export default function ManageCategoriesDialog({
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<FlatOption | null>(null)
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<FlatOption | null>(null)
 
   const options = useMemo(() => flattenTree(categories), [categories])
 
@@ -93,6 +100,19 @@ export default function ManageCategoriesDialog({
     setConfirmDeleteOpen(false)
     setPendingDelete(null)
   }, [])
+
+  const handleEditClick = useCallback((opt: FlatOption) => {
+    setEditingCategory(opt)
+    setEditDialogOpen(true)
+  }, [])
+
+  const handleEditSave = useCallback(async (newLabel: string) => {
+    if (editingCategory && onEditCategory) {
+      await onEditCategory(editingCategory.id, newLabel)
+    }
+    setEditDialogOpen(false)
+    setEditingCategory(null)
+  }, [editingCategory, onEditCategory])
 
   return (
     <>
@@ -126,19 +146,30 @@ export default function ManageCategoriesDialog({
                 key={opt.id}
                 sx={{ pl: 2 + opt.depth * 3 }}
                 secondaryAction={
-                  <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    {opt.depth + 1 < MAX_DEPTH && (
-                      <Tooltip title="Add child category">
-                        <IconButton
-                          edge="end"
-                          size="small"
-                          onClick={() => handleAddClick(opt.id, opt.depth + 1)}
-                        >
-                          <AddIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    <Tooltip title="Delete category">
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      {onEditCategory && (
+                        <Tooltip title="Rename category">
+                          <IconButton
+                            edge="end"
+                            size="small"
+                            onClick={() => handleEditClick(opt)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {opt.depth + 1 < MAX_DEPTH && (
+                        <Tooltip title="Add child category">
+                          <IconButton
+                            edge="end"
+                            size="small"
+                            onClick={() => handleAddClick(opt.id, opt.depth + 1)}
+                          >
+                            <AddIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Delete category">
                       <IconButton
                         edge="end"
                         size="small"
@@ -185,6 +216,16 @@ export default function ManageCategoriesDialog({
         onClose={() => setAddDialogOpen(false)}
         onAdd={handleAddCategory}
         currentDepth={addParentDepth}
+      />
+
+      <EditCategoryDialog
+        open={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false)
+          setEditingCategory(null)
+        }}
+        onSave={handleEditSave}
+        currentLabel={editingCategory?.label ?? ''}
       />
 
       {/* Confirm delete dialog */}

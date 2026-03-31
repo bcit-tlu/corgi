@@ -414,6 +414,18 @@ export default function App() {
     [loadCategories, loadUncategorizedImages],
   )
 
+  const editCategoryInline = useCallback(
+    async (categoryId: number, newLabel: string) => {
+      try {
+        await apiUpdateCategory(categoryId, { label: newLabel })
+        await loadCategories()
+      } catch (err) {
+        console.error('Failed to rename category', err)
+      }
+    },
+    [loadCategories],
+  )
+
   const handleMoveCategory = useCallback(
     async (categoryId: number, newParentId: number | null) => {
       try {
@@ -671,6 +683,7 @@ export default function App() {
           ) : page === 'manage' && canEditContent ? (
             <ManagePage
               categories={categories}
+              onEditCategory={editCategoryInline}
               onViewImage={(img) => {
                 setSelectedImage({
                   id: img.id,
@@ -987,6 +1000,7 @@ export default function App() {
         categories={categories}
         onAddCategory={addCategoryInline}
         onDeleteCategory={deleteCategoryInline}
+        onEditCategory={editCategoryInline}
       />
 
       {/* Move category dialog */}
@@ -1000,6 +1014,7 @@ export default function App() {
         category={movingCategory}
         categories={categories}
         onAddCategory={addCategoryInline}
+        onEditCategory={editCategoryInline}
       />
 
       {/* Image edit modal (viewer page) */}
@@ -1011,6 +1026,7 @@ export default function App() {
         categories={categories}
         programs={programs}
         onAddCategory={addCategoryInline}
+        onEditCategory={editCategoryInline}
       />
 
       {/* Upload image modal */}
@@ -1025,6 +1041,7 @@ export default function App() {
         categories={categories}
         programs={programs}
         onAddCategory={addCategoryInline}
+        onEditCategory={editCategoryInline}
       />
 
       {/* Self-edit profile modal */}

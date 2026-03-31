@@ -38,6 +38,7 @@ interface EditImageModalProps {
   categories: Category[]
   programs: Program[]
   onAddCategory?: (label: string, parentId: number | null) => Promise<void>
+  onEditCategory?: (categoryId: number, newLabel: string) => Promise<void>
 }
 
 function EditImageForm({
@@ -47,6 +48,7 @@ function EditImageForm({
   categories,
   programs,
   onAddCategory,
+  onEditCategory,
 }: Omit<EditImageModalProps, 'open'>) {
   const [name, setName] = useState(image?.name ?? '')
   const [categoryId, setCategoryId] = useState<number | null>(image?.category_id ?? null)
@@ -187,6 +189,7 @@ function EditImageForm({
             value={categoryId}
             onChange={setCategoryId}
             onAddCategory={onAddCategory}
+            onEditCategory={onEditCategory}
           />
         </Box>
         <TextField
@@ -272,6 +275,7 @@ export default function EditImageModal({
   categories,
   programs,
   onAddCategory,
+  onEditCategory,
 }: EditImageModalProps) {
   const formKey = image ? `edit-${image.id}` : 'closed'
 
@@ -286,6 +290,7 @@ export default function EditImageModal({
           categories={categories}
           programs={programs}
           onAddCategory={onAddCategory}
+          onEditCategory={onEditCategory}
         />
       )}
     </Dialog>
