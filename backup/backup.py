@@ -191,6 +191,17 @@ def run_backup() -> Path | None:
                     "sha256": _sha256(fpath),
                 }
 
+        # Include checksums for filesystem data files
+        if has_data:
+            log.info("Computing checksums for filesystem data …")
+            for fpath in sorted(data_src.rglob("*")):
+                if fpath.is_file():
+                    rel = "data/" + str(fpath.relative_to(data_src))
+                    manifest["files"][rel] = {
+                        "size": fpath.stat().st_size,
+                        "sha256": _sha256(fpath),
+                    }
+
         manifest_path = work / "manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2))
 
@@ -234,6 +245,7 @@ def run_backup() -> Path | None:
             final = persistent / archive_name
             shutil.copy2(str(archive_path), str(final))
             log.info("Local backup saved to %s", final)
+            _enforce_local_retention()
             return final
 
     log.info("Backup %s completed successfully", snapshot_name)
@@ -270,6 +282,28 @@ def _enforce_retention(client) -> None:
                 log.info("  Deleted %s", obj["Key"])
     except Exception:
         log.exception("Failed to enforce retention policy")
+
+
+def _enforce_local_retention() -> None:
+    """Delete old local snapshots beyond BACKUP_RETENTION_COUNT."""
+    if BACKUP_RETENTION_COUNT <= 0:
+        return
+
+    local_dir = Path("/backups")
+    if not local_dir.exists():
+        return
+
+    archives = sorted(local_dir.glob("corgi-backup-*.tar.gz"), reverse=True)
+    if len(archives) > BACKUP_RETENTION_COUNT:
+        to_delete = archives[BACKUP_RETENTION_COUNT:]
+        log.info(
+            "Local retention policy: keeping %d, deleting %d old snapshot(s)",
+            BACKUP_RETENTION_COUNT,
+            len(to_delete),
+        )
+        for f in to_delete:
+            f.unlink()
+            log.info("  Deleted %s", f.name)
 
 
 # ---------------------------------------------------------------------------
