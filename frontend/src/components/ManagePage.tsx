@@ -262,6 +262,11 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
     setFilters({})
   }
 
+  const selectedInView = useMemo(
+    () => sortedImages.filter((img) => selected.has(img.id)).length,
+    [sortedImages, selected],
+  )
+
   // Selection handlers
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -476,8 +481,8 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
               <TableRow>
                 <TableCell padding="checkbox">
                   <Checkbox
-                    indeterminate={selected.size > 0 && selected.size < sortedImages.length}
-                    checked={sortedImages.length > 0 && selected.size === sortedImages.length}
+                    indeterminate={selectedInView > 0 && selectedInView < sortedImages.length}
+                    checked={sortedImages.length > 0 && selectedInView === sortedImages.length}
                     onChange={(e) => handleSelectAll(e.target.checked)}
                   />
                 </TableCell>
