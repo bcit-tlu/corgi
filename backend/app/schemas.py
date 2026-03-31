@@ -161,6 +161,21 @@ class UserBulkUpdate(BaseModel):
     program_id: int | None = None
 
 
+# ── Image Bulk Operations ────────────────────────────────
+
+class ImageBulkUpdate(BaseModel):
+    image_ids: list[int]
+    category_id: int | None = None
+    copyright: str | None = None
+    origin: str | None = None
+    program: str | None = None
+    active: bool | None = None
+
+
+class ImageBulkDelete(BaseModel):
+    image_ids: list[int]
+
+
 class UserOut(UserBase):
     id: int
     last_access: datetime | None = None

@@ -180,6 +180,29 @@ export function deleteImage(id: number): Promise<void> {
   return request(`/images/${id}`, { method: 'DELETE' })
 }
 
+export function bulkUpdateImages(body: {
+  image_ids: number[]
+  category_id?: number | null
+  copyright?: string
+  origin?: string
+  program?: string
+  active?: boolean
+}): Promise<ApiImage[]> {
+  return request('/images/bulk', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export function bulkDeleteImages(body: {
+  image_ids: number[]
+}): Promise<void> {
+  return request('/images/bulk', {
+    method: 'DELETE',
+    body: JSON.stringify(body),
+  })
+}
+
 // ── Users ────────────────────────────────────────────────
 
 export function fetchUsers(): Promise<ApiUser[]> {
