@@ -3,13 +3,16 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
 import CircularProgress from '@mui/material/CircularProgress'
+import FormControl from '@mui/material/FormControl'
 import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
 import Link from '@mui/material/Link'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
+import Select from '@mui/material/Select'
 import Switch from '@mui/material/Switch'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
@@ -18,8 +21,11 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TableSortLabel from '@mui/material/TableSortLabel'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import type { SelectChangeEvent } from '@mui/material/Select'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
+import ClearIcon from '@mui/icons-material/Clear'
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove'
@@ -121,6 +127,10 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
   const [sortColumn, setSortColumn] = useState<SortableColumn>('id')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
+  // Filter state
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const hasActiveFilters = Object.values(filters).some((v) => v !== '')
+
   const categoryPaths = useMemo(() => buildCategoryPaths(categories), [categories])
 
   // Edit modal state
@@ -182,9 +192,32 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
       .join(', ')
   }, [programs])
 
-  // Sorted images
+  // Filtered and sorted images
+  const filteredImages = useMemo(() => {
+    if (!hasActiveFilters) return images
+    return images.filter((img) => {
+      const match = (field: string, value: string) => {
+        const filter = filters[field]
+        if (!filter) return true
+        return value.toLowerCase().includes(filter.toLowerCase())
+      }
+      if (!match('id', String(img.id))) return false
+      if (!match('label', img.label)) return false
+      if (!match('category', getCategoryLabel(img))) return false
+      if (!match('copyright', img.copyright ?? '')) return false
+      if (!match('origin', img.origin ?? '')) return false
+      if (!match('program', getProgramNames(img))) return false
+      const statusFilter = filters['active']
+      if (statusFilter) {
+        if (statusFilter === 'active' && !img.active) return false
+        if (statusFilter === 'inactive' && img.active) return false
+      }
+      return true
+    })
+  }, [images, filters, hasActiveFilters, getCategoryLabel, getProgramNames])
+
   const sortedImages = useMemo(() => {
-    const sorted = [...images]
+    const sorted = [...filteredImages]
     sorted.sort((a, b) => {
       let cmp = 0
       switch (sortColumn) {
@@ -219,7 +252,15 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
       return sortDirection === 'asc' ? cmp : -cmp
     })
     return sorted
-  }, [images, sortColumn, sortDirection, getCategoryLabel, getProgramNames])
+  }, [filteredImages, sortColumn, sortDirection, getCategoryLabel, getProgramNames])
+
+  const handleFilterChange = (column: string, value: string) => {
+    setFilters((prev) => ({ ...prev, [column]: value }))
+  }
+
+  const handleClearFilters = () => {
+    setFilters({})
+  }
 
   // Selection handlers
   const handleSelectAll = (checked: boolean) => {
@@ -522,6 +563,98 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
                   </TableSortLabel>
                 </TableCell>
                 <TableCell align="right">Actions</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell padding="checkbox">
+                  {hasActiveFilters && (
+                    <IconButton size="small" onClick={handleClearFilters} title="Clear all filters">
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    size="small"
+                    variant="standard"
+                    placeholder="Filter"
+                    value={filters['id'] ?? ''}
+                    onChange={(e) => handleFilterChange('id', e.target.value)}
+                    slotProps={{ input: { sx: { fontSize: '0.8rem' } } }}
+                    InputProps={filters['id'] ? { endAdornment: <InputAdornment position="end"><IconButton size="small" onClick={() => handleFilterChange('id', '')}><ClearIcon sx={{ fontSize: 14 }} /></IconButton></InputAdornment> } : undefined}
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    size="small"
+                    variant="standard"
+                    placeholder="Filter"
+                    value={filters['label'] ?? ''}
+                    onChange={(e) => handleFilterChange('label', e.target.value)}
+                    slotProps={{ input: { sx: { fontSize: '0.8rem' } } }}
+                    InputProps={filters['label'] ? { endAdornment: <InputAdornment position="end"><IconButton size="small" onClick={() => handleFilterChange('label', '')}><ClearIcon sx={{ fontSize: 14 }} /></IconButton></InputAdornment> } : undefined}
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    size="small"
+                    variant="standard"
+                    placeholder="Filter"
+                    value={filters['category'] ?? ''}
+                    onChange={(e) => handleFilterChange('category', e.target.value)}
+                    slotProps={{ input: { sx: { fontSize: '0.8rem' } } }}
+                    InputProps={filters['category'] ? { endAdornment: <InputAdornment position="end"><IconButton size="small" onClick={() => handleFilterChange('category', '')}><ClearIcon sx={{ fontSize: 14 }} /></IconButton></InputAdornment> } : undefined}
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    size="small"
+                    variant="standard"
+                    placeholder="Filter"
+                    value={filters['copyright'] ?? ''}
+                    onChange={(e) => handleFilterChange('copyright', e.target.value)}
+                    slotProps={{ input: { sx: { fontSize: '0.8rem' } } }}
+                    InputProps={filters['copyright'] ? { endAdornment: <InputAdornment position="end"><IconButton size="small" onClick={() => handleFilterChange('copyright', '')}><ClearIcon sx={{ fontSize: 14 }} /></IconButton></InputAdornment> } : undefined}
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    size="small"
+                    variant="standard"
+                    placeholder="Filter"
+                    value={filters['origin'] ?? ''}
+                    onChange={(e) => handleFilterChange('origin', e.target.value)}
+                    slotProps={{ input: { sx: { fontSize: '0.8rem' } } }}
+                    InputProps={filters['origin'] ? { endAdornment: <InputAdornment position="end"><IconButton size="small" onClick={() => handleFilterChange('origin', '')}><ClearIcon sx={{ fontSize: 14 }} /></IconButton></InputAdornment> } : undefined}
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    size="small"
+                    variant="standard"
+                    placeholder="Filter"
+                    value={filters['program'] ?? ''}
+                    onChange={(e) => handleFilterChange('program', e.target.value)}
+                    slotProps={{ input: { sx: { fontSize: '0.8rem' } } }}
+                    InputProps={filters['program'] ? { endAdornment: <InputAdornment position="end"><IconButton size="small" onClick={() => handleFilterChange('program', '')}><ClearIcon sx={{ fontSize: 14 }} /></IconButton></InputAdornment> } : undefined}
+                  />
+                </TableCell>
+                <TableCell>
+                  <FormControl size="small" variant="standard" fullWidth>
+                    <Select
+                      value={filters['active'] ?? ''}
+                      onChange={(e: SelectChangeEvent) => handleFilterChange('active', e.target.value)}
+                      displayEmpty
+                      sx={{ fontSize: '0.8rem' }}
+                    >
+                      <MenuItem value=""><em>All</em></MenuItem>
+                      <MenuItem value="active">Active</MenuItem>
+                      <MenuItem value="inactive">Inactive</MenuItem>
+                    </Select>
+                  </FormControl>
+                </TableCell>
+                <TableCell />
+                <TableCell />
+                <TableCell />
               </TableRow>
             </TableHead>
             <TableBody>
