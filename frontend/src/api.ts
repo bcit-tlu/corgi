@@ -341,6 +341,7 @@ export async function uploadSourceImage(
   copyright?: string,
   note?: string,
   programIds?: number[],
+  active?: boolean,
 ): Promise<ApiSourceImage> {
   const form = new FormData()
   form.append('file', file)
@@ -353,6 +354,7 @@ export async function uploadSourceImage(
       form.append('program_ids', String(id))
     }
   }
+  if (active !== undefined) form.append('active', String(active))
   const res = await fetch(`${BASE}/api/source-images/upload`, {
     method: 'POST',
     headers: authHeaders(),
