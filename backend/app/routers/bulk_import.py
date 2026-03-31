@@ -14,12 +14,12 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import require_role
 from ..database import async_session, get_db, settings
-from ..models import BulkImportJob, SourceImage, User
+from ..models import BulkImportJob, Category, SourceImage, User
 from ..processing import process_source_image
 from ..schemas import BulkImportJobOut
 
@@ -76,21 +76,20 @@ async def _process_bulk_import(job_id: int, file_entries: list[tuple[str, str]])
         async with semaphore:
             try:
                 await process_source_image(src.id)
-
-                # Update job counters on success
-                async with async_session() as db:
-                    job = await db.get(BulkImportJob, job_id)
-                    if job is not None:
-                        job.completed_count += 1
-                        await db.commit()
             except Exception as exc:
                 logger.exception(
                     "Bulk import: failed to process %s", original_filename
                 )
                 async with async_session() as db:
+                    await db.execute(
+                        update(BulkImportJob)
+                        .where(BulkImportJob.id == job_id)
+                        .values(failed_count=BulkImportJob.failed_count + 1)
+                    )
+                    await db.commit()
+                    # Append error details
                     job = await db.get(BulkImportJob, job_id)
                     if job is not None:
-                        job.failed_count += 1
                         errors = list(job.errors or [])
                         errors.append({
                             "filename": original_filename,
@@ -98,6 +97,35 @@ async def _process_bulk_import(job_id: int, file_entries: list[tuple[str, str]])
                         })
                         job.errors = errors
                         await db.commit()
+                return
+
+            # process_source_image catches its own exceptions internally
+            # and sets SourceImage.status to "failed". Check for that.
+            async with async_session() as db:
+                src_check = await db.get(SourceImage, src.id)
+                if src_check is not None and src_check.status == "failed":
+                    await db.execute(
+                        update(BulkImportJob)
+                        .where(BulkImportJob.id == job_id)
+                        .values(failed_count=BulkImportJob.failed_count + 1)
+                    )
+                    await db.commit()
+                    job = await db.get(BulkImportJob, job_id)
+                    if job is not None:
+                        errors = list(job.errors or [])
+                        errors.append({
+                            "filename": original_filename,
+                            "error": src_check.error_message or "Processing failed",
+                        })
+                        job.errors = errors
+                        await db.commit()
+                else:
+                    await db.execute(
+                        update(BulkImportJob)
+                        .where(BulkImportJob.id == job_id)
+                        .values(completed_count=BulkImportJob.completed_count + 1)
+                    )
+                    await db.commit()
 
     # Mark job as processing
     async with async_session() as db:
@@ -143,6 +171,11 @@ async def bulk_import_images(
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
+
+    # Validate that the target category exists
+    category = await db.get(Category, category_id)
+    if category is None:
+        raise HTTPException(status_code=400, detail="Category not found")
 
     os.makedirs(settings.source_images_dir, exist_ok=True)
 
