@@ -8,6 +8,8 @@ export interface ImageItem {
   note?: string | null
   programIds: number[]
   active: boolean
+  createdAt?: string | null
+  updatedAt?: string | null
 }
 
 export interface Category {

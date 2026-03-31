@@ -67,6 +67,19 @@ function findImageInTree(
   return null
 }
 
+function findCategoryPath(
+  tree: Category[],
+  categoryId: number,
+  path: Category[] = [],
+): Category[] | null {
+  for (const cat of tree) {
+    if (cat.id === categoryId) return [...path, cat]
+    const found = findCategoryPath(cat.children, categoryId, [...path, cat])
+    if (found) return found
+  }
+  return null
+}
+
 function apiTreeToCategory(node: ApiCategoryTree): Category {
   const meta = node.metadata_extra as Record<string, unknown> | null
   return {
@@ -84,6 +97,8 @@ function apiTreeToCategory(node: ApiCategoryTree): Category {
       note: img.note,
       programIds: img.program_ids,
       active: img.active,
+      createdAt: img.created_at,
+      updatedAt: img.updated_at,
     })),
     program: node.program,
     status: node.status,
@@ -230,6 +245,8 @@ export default function App() {
           note: img.note,
           programIds: img.program_ids,
           active: img.active,
+          createdAt: img.created_at,
+          updatedAt: img.updated_at,
         })),
       )
       uncategorizedLoaded.current = true
@@ -453,8 +470,8 @@ export default function App() {
         program_ids: selectedImage.programIds,
         active: selectedImage.active,
         metadata_extra: null,
-        created_at: '',
-        updated_at: '',
+        created_at: selectedImage.createdAt ?? '',
+        updated_at: selectedImage.updatedAt ?? '',
       }
     : null
 
@@ -473,6 +490,8 @@ export default function App() {
           note: updated.note,
           programIds: updated.program_ids,
           active: updated.active,
+          createdAt: updated.created_at,
+          updatedAt: updated.updated_at,
         })
         setImageEditOpen(false)
         await loadCategories()
@@ -655,7 +674,16 @@ export default function App() {
                   note: img.note,
                   programIds: img.program_ids,
                   active: img.active,
+                  createdAt: img.created_at,
+                  updatedAt: img.updated_at,
                 })
+                // Build breadcrumb path from the image's category
+                if (img.category_id != null) {
+                  const catPath = findCategoryPath(categories, img.category_id)
+                  if (catPath) setPath(catPath)
+                } else {
+                  setPath([])
+                }
                 setPage('browse')
               }}
               onNavigateCategory={(categoryPath) => {
@@ -757,9 +785,49 @@ export default function App() {
                 <Typography variant="body2" color="text.secondary">
                   Use your scroll wheel to zoom, or click and drag to pan.
                   Use the rotation buttons to rotate the image, or pinch-rotate
-                  on touch devices. The mini-map in the bottom-right corner
+                  on touch devices. The mini-map in the bottom-left corner
                   shows your current viewport.
                 </Typography>
+              </Box>
+
+              {/* Image metadata */}
+              <Box
+                sx={{
+                  mt: 2,
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 0,
+                  '& > span': { mr: '2em' },
+                }}
+              >
+                {selectedImage.copyright && (
+                  <Typography variant="body2" color="text.secondary" component="span">
+                    <strong>Copyright:</strong> {selectedImage.copyright}
+                  </Typography>
+                )}
+                {selectedImage.programIds.length > 0 && (
+                  <Typography variant="body2" color="text.secondary" component="span">
+                    <strong>Program{selectedImage.programIds.length > 1 ? 's' : ''}:</strong>{' '}
+                    {selectedImage.programIds
+                      .map((pid) => programs.find((p) => p.id === pid)?.name ?? pid)
+                      .join(', ')}
+                  </Typography>
+                )}
+                {selectedImage.note && (
+                  <Typography variant="body2" color="text.secondary" component="span">
+                    <strong>Note:</strong> {selectedImage.note}
+                  </Typography>
+                )}
+                {selectedImage.createdAt && (
+                  <Typography variant="body2" color="text.secondary" component="span">
+                    <strong>Created:</strong> {new Date(selectedImage.createdAt).toLocaleString()}
+                  </Typography>
+                )}
+                {selectedImage.updatedAt && (
+                  <Typography variant="body2" color="text.secondary" component="span">
+                    <strong>Modified:</strong> {new Date(selectedImage.updatedAt).toLocaleString()}
+                  </Typography>
+                )}
               </Box>
             </>
           ) : (

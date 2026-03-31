@@ -38,6 +38,8 @@ function apiTreeToCategory(node: ApiCategoryTree): Category {
       note: img.note,
       programIds: img.program_ids,
       active: img.active,
+      createdAt: img.created_at,
+      updatedAt: img.updated_at,
     })),
     program: node.program,
     status: node.status,
