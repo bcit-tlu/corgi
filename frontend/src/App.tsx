@@ -531,7 +531,7 @@ export default function App() {
                     <Link
                       component="button"
                       variant="body2"
-                      color="error"
+                      color="primary"
                       onClick={() => {
                         setProfileOpen(false)
                         logout()

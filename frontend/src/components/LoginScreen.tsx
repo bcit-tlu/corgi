@@ -146,7 +146,7 @@ export default function LoginScreen({ onLogin, announcement }: LoginScreenProps)
       <Box
         sx={{
           flex: '0 0 50%',
-          backgroundImage: 'url(/login-splash.jpg)',
+          backgroundImage: 'url(/login-splash.jpg?v=2)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           display: { xs: 'none', md: 'block' },

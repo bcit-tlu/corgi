@@ -415,9 +415,9 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
         </MenuItem>
         <MenuItem onClick={handleMenuDelete}>
           <ListItemIcon>
-            <DeleteIcon fontSize="small" color="error" />
+            <DeleteIcon fontSize="small" color="primary" />
           </ListItemIcon>
-          <ListItemText sx={{ color: 'error.main' }}>Delete</ListItemText>
+          <ListItemText sx={{ color: 'primary.main' }}>Delete</ListItemText>
         </MenuItem>
       </Menu>
 

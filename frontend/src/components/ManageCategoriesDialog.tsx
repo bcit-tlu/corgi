@@ -144,7 +144,7 @@ export default function ManageCategoriesDialog({
                         size="small"
                         onClick={() => handleDeleteClick(opt)}
                       >
-                        <DeleteIcon fontSize="small" color="error" />
+                        <DeleteIcon fontSize="small" color="primary" />
                       </IconButton>
                     </Tooltip>
                   </Box>

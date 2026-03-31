@@ -285,7 +285,7 @@ export default function PeoplePage() {
                   >
                     <Button
                       size="small"
-                      color="error"
+                      color="primary"
                       onClick={() => handleDeletePerson(user.id)}
                     >
                       Delete
