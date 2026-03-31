@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "corgi-backup"
+version = "0.1.0"
+description = "Corgi Disaster Recovery Backup Service"
+authors = ["Devin AI"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+boto3 = "^1.35.0"
+croniter = "^5.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
