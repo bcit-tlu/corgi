@@ -238,7 +238,7 @@ async def import_database(
                 created_at=_parse_dt(i.get("created_at")),
                 updated_at=_parse_dt(i.get("updated_at")),
             )
-            # Handle program_ids (new format) or program (legacy)
+            # Handle program_ids (new format only; legacy string 'program' is not migrated)
             prog_ids = i.get("program_ids", [])
             if prog_ids:
                 progs = (await db.execute(
