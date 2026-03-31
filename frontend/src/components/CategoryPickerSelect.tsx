@@ -8,6 +8,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 import Tooltip from '@mui/material/Tooltip'
 import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import type { Category } from '../types'
 import { MAX_DEPTH } from '../types'
@@ -61,6 +62,8 @@ interface CategoryPickerSelectProps {
   includeRoot?: boolean
   /** When provided, a "+" button appears on each menu item to add a child category. */
   onAddCategory?: (label: string, parentId: number | null) => Promise<void>
+  /** When provided, a delete button appears on each menu item to delete that category. */
+  onDeleteCategory?: (categoryId: number) => Promise<void>
 }
 
 export default function CategoryPickerSelect({
@@ -71,6 +74,7 @@ export default function CategoryPickerSelect({
   excludeCategoryId,
   includeRoot = true,
   onAddCategory,
+  onDeleteCategory,
 }: CategoryPickerSelectProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [addParentId, setAddParentId] = useState<number | null>(null)
@@ -167,6 +171,21 @@ export default function CategoryPickerSelect({
                       sx={{ ml: 1, p: 0.5 }}
                     >
                       <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {onDeleteCategory && (
+                  <Tooltip title="Delete category">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        onDeleteCategory(opt.id)
+                      }}
+                      sx={{ p: 0.5 }}
+                    >
+                      <DeleteIcon fontSize="small" color="error" />
                     </IconButton>
                   </Tooltip>
                 )}

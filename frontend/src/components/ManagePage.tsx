@@ -221,7 +221,7 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
               startIcon={<CreateNewFolderIcon />}
               onClick={onNewCategory}
             >
-              New Category
+              Add/Edit Categories
             </Button>
           )}
           <Button
