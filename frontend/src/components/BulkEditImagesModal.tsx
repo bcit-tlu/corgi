@@ -37,6 +37,7 @@ export default function BulkEditImagesModal({
   selectedCount,
 }: BulkEditImagesModalProps) {
   const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [categoryChanged, setCategoryChanged] = useState(false)
   const [copyright, setCopyright] = useState('')
   const [origin, setOrigin] = useState('')
   const [program, setProgram] = useState('')
@@ -46,6 +47,7 @@ export default function BulkEditImagesModal({
 
   const resetForm = useCallback(() => {
     setCategoryId(null)
+    setCategoryChanged(false)
     setCopyright('')
     setOrigin('')
     setProgram('')
@@ -71,7 +73,7 @@ export default function BulkEditImagesModal({
       program?: string
       active?: boolean
     } = {}
-    if (categoryId !== null) data.category_id = categoryId
+    if (categoryChanged) data.category_id = categoryId
     if (copyright.trim()) data.copyright = copyright.trim()
     if (origin.trim()) data.origin = origin.trim()
     if (program.trim()) data.program = program.trim()
@@ -111,7 +113,10 @@ export default function BulkEditImagesModal({
           <CategoryPickerSelect
             categories={categories}
             value={categoryId}
-            onChange={setCategoryId}
+            onChange={(id) => {
+              setCategoryId(id)
+              setCategoryChanged(true)
+            }}
             label="Move to Category"
           />
         </Box>
