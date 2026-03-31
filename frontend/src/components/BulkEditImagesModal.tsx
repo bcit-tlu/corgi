@@ -22,8 +22,8 @@ interface BulkEditImagesModalProps {
     origin?: string
     program?: string
     active?: boolean
-  }) => void
-  onDelete: () => void
+  }) => Promise<void>
+  onDelete: () => Promise<void>
   categories: Category[]
   selectedCount: number
 }
@@ -44,6 +44,7 @@ export default function BulkEditImagesModal({
   const [active, setActive] = useState(true)
   const [activeChanged, setActiveChanged] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const resetForm = useCallback(() => {
     setCategoryId(null)
@@ -54,6 +55,7 @@ export default function BulkEditImagesModal({
     setActive(true)
     setActiveChanged(false)
     setConfirmDelete(false)
+    setSaving(false)
   }, [])
 
   const handleEnter = useCallback(() => {
@@ -65,7 +67,7 @@ export default function BulkEditImagesModal({
     onClose()
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const data: {
       category_id?: number | null
       copyright?: string
@@ -78,17 +80,27 @@ export default function BulkEditImagesModal({
     if (origin.trim()) data.origin = origin.trim()
     if (program.trim()) data.program = program.trim()
     if (activeChanged) data.active = active
-    onSave(data)
-    resetForm()
+    setSaving(true)
+    try {
+      await onSave(data)
+      resetForm()
+    } catch {
+      setSaving(false)
+    }
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!confirmDelete) {
       setConfirmDelete(true)
       return
     }
-    onDelete()
-    resetForm()
+    setSaving(true)
+    try {
+      await onDelete()
+      resetForm()
+    } catch {
+      setSaving(false)
+    }
   }
 
   return (
@@ -162,6 +174,7 @@ export default function BulkEditImagesModal({
             color="error"
             variant={confirmDelete ? 'contained' : 'outlined'}
             onClick={handleDelete}
+            disabled={saving}
             fullWidth
           >
             {confirmDelete
@@ -180,9 +193,9 @@ export default function BulkEditImagesModal({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained">
-          Save Changes
+        <Button onClick={handleClose} disabled={saving}>Cancel</Button>
+        <Button onClick={handleSave} variant="contained" disabled={saving}>
+          {saving ? 'Saving…' : 'Save Changes'}
         </Button>
       </DialogActions>
     </Dialog>

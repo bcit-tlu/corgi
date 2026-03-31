@@ -180,6 +180,7 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
       onCategoriesChanged?.()
     } catch (err) {
       console.error('Failed to bulk update images', err)
+      throw err
     }
   }
 
@@ -192,6 +193,7 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
       onCategoriesChanged?.()
     } catch (err) {
       console.error('Failed to bulk delete images', err)
+      throw err
     }
   }
 
