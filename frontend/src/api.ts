@@ -328,6 +328,7 @@ export interface ApiSourceImage {
   category_id: number | null
   copyright: string | null
   note: string | null
+  active: boolean
   program_ids: number[]
   image_id: number | null
   created_at: string
