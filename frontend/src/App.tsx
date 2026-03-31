@@ -169,7 +169,14 @@ export default function App() {
           const x = parseFloat(px)
           const y = parseFloat(py)
           if (!Number.isNaN(zoom) && !Number.isNaN(x) && !Number.isNaN(y)) {
-            pendingViewport.current = { zoom, x, y }
+            const rot = params.get('rotation')
+            const rotation = rot ? parseFloat(rot) : undefined
+            pendingViewport.current = {
+              zoom,
+              x,
+              y,
+              rotation: rotation && !Number.isNaN(rotation) ? rotation : undefined,
+            }
           }
         }
       }
@@ -270,6 +277,9 @@ export default function App() {
         params.set('zoom', viewportState.zoom.toFixed(4))
         params.set('x', viewportState.x.toFixed(6))
         params.set('y', viewportState.y.toFixed(6))
+        if (viewportState.rotation) {
+          params.set('rotation', viewportState.rotation.toFixed(1))
+        }
       }
     }
     const qs = params.toString()
