@@ -282,17 +282,19 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
     setCurrentPage(0)
   }
 
+  const pageImages = sortedImages.slice(currentPage * rowsPerPage, currentPage * rowsPerPage + rowsPerPage)
+
   const selectedInView = useMemo(
-    () => sortedImages.filter((img) => selected.has(img.id)).length,
-    [sortedImages, selected],
+    () => pageImages.filter((img) => selected.has(img.id)).length,
+    [pageImages, selected],
   )
 
-  // Selection handlers
+  // Selection handlers — scoped to current page only
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelected(new Set(sortedImages.map((img) => img.id)))
+      setSelected((prev) => { const next = new Set(prev); pageImages.forEach((img) => next.add(img.id)); return next })
     } else {
-      setSelected(new Set())
+      setSelected((prev) => { const next = new Set(prev); pageImages.forEach((img) => next.delete(img.id)); return next })
     }
   }
 
@@ -510,8 +512,8 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
               <TableRow>
                 <TableCell padding="checkbox">
                   <Checkbox
-                    indeterminate={selectedInView > 0 && selectedInView < sortedImages.length}
-                    checked={sortedImages.length > 0 && selectedInView === sortedImages.length}
+                    indeterminate={selectedInView > 0 && selectedInView < pageImages.length}
+                    checked={pageImages.length > 0 && selectedInView === pageImages.length}
                     onChange={(e) => handleSelectAll(e.target.checked)}
                   />
                 </TableCell>
