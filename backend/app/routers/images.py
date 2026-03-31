@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth import get_current_user, require_role
 from ..database import get_db
 from ..models import Image, User
-from ..schemas import ImageCreate, ImageUpdate, ImageOut
+from ..schemas import ImageCreate, ImageUpdate, ImageBulkUpdate, ImageBulkDelete, ImageOut
 
 router = APIRouter(prefix="/images", tags=["images"])
 
@@ -68,6 +68,29 @@ async def create_image(
     return img
 
 
+@router.patch("/bulk", response_model=list[ImageOut])
+async def bulk_update_images(
+    body: ImageBulkUpdate,
+    _user: Annotated[User, Depends(require_role("admin", "instructor"))],
+    db: AsyncSession = Depends(get_db),
+):
+    """Bulk-update fields for multiple images."""
+    stmt = select(Image).where(Image.id.in_(body.image_ids))
+    result = await db.execute(stmt)
+    images = result.scalars().all()
+    if len(images) != len(set(body.image_ids)):
+        raise HTTPException(status_code=404, detail="One or more images not found")
+    update_data = body.model_dump(exclude_unset=True, exclude={"image_ids"})
+    for img in images:
+        for key, value in update_data.items():
+            setattr(img, key, value)
+    await db.commit()
+    # Reload updated images
+    stmt = select(Image).where(Image.id.in_(body.image_ids)).order_by(Image.label)
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
 @router.patch("/{image_id}", response_model=ImageOut)
 async def update_image(
     image_id: int,
@@ -86,6 +109,23 @@ async def update_image(
     await db.commit()
     await db.refresh(img)
     return img
+
+
+@router.delete("/bulk", status_code=204)
+async def bulk_delete_images(
+    body: ImageBulkDelete,
+    _user: Annotated[User, Depends(require_role("admin"))],
+    db: AsyncSession = Depends(get_db),
+):
+    """Bulk-delete multiple images."""
+    stmt = select(Image).where(Image.id.in_(body.image_ids))
+    result = await db.execute(stmt)
+    images = result.scalars().all()
+    if len(images) != len(set(body.image_ids)):
+        raise HTTPException(status_code=404, detail="One or more images not found")
+    for img in images:
+        await db.delete(img)
+    await db.commit()
 
 
 @router.delete("/{image_id}", status_code=204)

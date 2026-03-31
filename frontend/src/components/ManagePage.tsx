@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
 import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
 import Link from '@mui/material/Link'
@@ -22,9 +23,10 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import InfoIcon from '@mui/icons-material/Info'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import VisibilityIcon from '@mui/icons-material/Visibility'
-import { fetchImages, updateImage, deleteImage } from '../api'
+import { fetchImages, updateImage, deleteImage, bulkUpdateImages, bulkDeleteImages } from '../api'
 import type { ApiImage } from '../api'
 import type { Category } from '../types'
+import BulkEditImagesModal from './BulkEditImagesModal'
 import EditImageModal from './EditImageModal'
 import type { ImageFormData } from './EditImageModal'
 import UploadImageModal from './UploadImageModal'
@@ -104,12 +106,16 @@ interface ManagePageProps {
 export default function ManagePage({ categories, onViewImage, onNavigateCategory, onCategoriesChanged, onNewCategory }: ManagePageProps) {
   const [images, setImages] = useState<ApiImage[]>([])
   const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
 
   const categoryPaths = useMemo(() => buildCategoryPaths(categories), [categories])
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false)
   const [editingImage, setEditingImage] = useState<ApiImage | null>(null)
+
+  // Bulk edit modal state
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
 
   // Upload modal state
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -134,6 +140,63 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
     loadImages()
   }, [loadImages])
 
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelected(new Set(images.map((img) => img.id)))
+    } else {
+      setSelected(new Set())
+    }
+  }
+
+  const handleSelectOne = (imageId: number, checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (checked) {
+        next.add(imageId)
+      } else {
+        next.delete(imageId)
+      }
+      return next
+    })
+  }
+
+  // Bulk edit handlers
+  const handleBulkSave = async (data: {
+    category_id?: number | null
+    copyright?: string
+    origin?: string
+    program?: string
+    active?: boolean
+  }) => {
+    try {
+      await bulkUpdateImages({
+        image_ids: Array.from(selected),
+        ...data,
+      })
+      setBulkEditOpen(false)
+      setSelected(new Set())
+      await loadImages()
+      onCategoriesChanged?.()
+    } catch (err) {
+      console.error('Failed to bulk update images', err)
+      throw err
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    try {
+      await bulkDeleteImages({ image_ids: Array.from(selected) })
+      setBulkEditOpen(false)
+      setSelected(new Set())
+      await loadImages()
+      onCategoriesChanged?.()
+    } catch (err) {
+      console.error('Failed to bulk delete images', err)
+      throw err
+    }
+  }
+
   // Row click → open edit modal
   const handleRowClick = (image: ApiImage) => {
     setEditingImage(image)
@@ -157,6 +220,11 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
   const handleDeleteImage = async (image: ApiImage) => {
     try {
       await deleteImage(image.id)
+      setSelected((prev) => {
+        const next = new Set(prev)
+        next.delete(image.id)
+        return next
+      })
       await loadImages()
     } catch (err) {
       console.error('Failed to delete image', err)
@@ -209,11 +277,22 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h5">
           Images
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexShrink: 0, alignItems: 'center' }}>
+          {selected.size > 0 && (
+            <Link
+              component="button"
+              variant="body2"
+              underline="always"
+              onClick={() => setBulkEditOpen(true)}
+              sx={{ cursor: 'pointer' }}
+            >
+              bulk edit ({selected.size} selected)
+            </Link>
+          )}
           {onNewCategory && (
             <Button
               variant="contained"
@@ -242,6 +321,13 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
           <Table size="small">
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    indeterminate={selected.size > 0 && selected.size < images.length}
+                    checked={images.length > 0 && selected.size === images.length}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                  />
+                </TableCell>
                 <TableCell>ID</TableCell>
                 <TableCell>Label</TableCell>
                 <TableCell>Category</TableCell>
@@ -258,9 +344,21 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
                 <TableRow
                   key={img.id}
                   hover
+                  selected={selected.has(img.id)}
                   sx={{ cursor: 'pointer' }}
                   onClick={() => handleRowClick(img)}
                 >
+                  <TableCell
+                    padding="checkbox"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={selected.has(img.id)}
+                      onChange={(e) =>
+                        handleSelectOne(img.id, e.target.checked)
+                      }
+                    />
+                  </TableCell>
                   <TableCell>{img.id}</TableCell>
                   <TableCell>{img.label}</TableCell>
                   <TableCell>
@@ -342,6 +440,16 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         onUploaded={loadImages}
+      />
+
+      {/* Bulk edit images modal */}
+      <BulkEditImagesModal
+        open={bulkEditOpen}
+        onClose={() => setBulkEditOpen(false)}
+        onSave={handleBulkSave}
+        onDelete={handleBulkDelete}
+        categories={categories}
+        selectedCount={selected.size}
       />
     </Box>
   )
