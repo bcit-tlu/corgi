@@ -48,13 +48,6 @@ export default function CardImagePickerModal({
 }: CardImagePickerModalProps) {
   const [selectedId, setSelectedId] = useState<number | null>(currentImageId)
 
-  // Re-sync selection when the dialog opens or the current image changes
-  useEffect(() => {
-    if (open) {
-      setSelectedId(currentImageId)
-    }
-  }, [open, currentImageId])
-
   const allImages = useMemo(() => collectImages(category, ''), [category])
 
   const handleSave = () => {
