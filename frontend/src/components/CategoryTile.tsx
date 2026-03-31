@@ -135,9 +135,9 @@ export default function CategoryTile({ category, onClick, onMove, onSetCardImage
         </Box>
       </Card>
 
-      {onSetCardImage && (
+      {onSetCardImage && pickerOpen && (
         <CardImagePickerModal
-          open={pickerOpen}
+          open
           onClose={() => setPickerOpen(false)}
           onSave={(imageId) => {
             onSetCardImage(category.id, imageId)
