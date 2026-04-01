@@ -447,6 +447,22 @@ export function fetchBulkImportJobs(): Promise<ApiBulkImportJob[]> {
   return request('/admin/bulk-import/')
 }
 
+// ── Issues ──────────────────────────────────────────────
+
+export interface ReportIssueResponse {
+  issue_url: string
+}
+
+export function reportIssue(body: {
+  description: string
+  page_url: string
+}): Promise<ReportIssueResponse> {
+  return request('/issues/report', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
 // ── Admin ───────────────────────────────────────────────
 
 export function exportDatabase(): Promise<void> {

@@ -12,6 +12,7 @@ service:
 env:
   SOURCE_IMAGES_DIR: /data/source_images
   TILES_DIR: /data/tiles
+  GITHUB_REPO: ""
 
 # CloudNative-PG database cluster
 cnpg:
@@ -32,6 +33,7 @@ vault:
   refreshAfter: 1h
   dbAppSecretPath: corgi/db-app
   dbSuperuserSecretPath: corgi/db-superuser
+  githubPatSecretPath: corgi/github-pat
 
 persistence:
   enabled: true
