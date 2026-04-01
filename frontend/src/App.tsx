@@ -711,9 +711,11 @@ export default function App() {
           <Tabs
             value={page}
             onChange={(_, v: Page) => {
-              setPage(v)
-              clearImage()
-              setPath([])
+              if (v === 'browse' || v === 'manage' || v === 'people' || v === 'admin') {
+                setPage(v)
+                clearImage()
+                setPath([])
+              }
             }}
             textColor="inherit"
             TabIndicatorProps={{ style: { backgroundColor: 'white' } }}
