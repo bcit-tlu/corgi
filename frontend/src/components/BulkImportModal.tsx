@@ -22,6 +22,7 @@ interface BulkImportModalProps {
   categories: Category[]
   onAddCategory?: (label: string, parentId: number | null) => Promise<void>
   onEditCategory?: (categoryId: number, newLabel: string) => Promise<void>
+  onToggleVisibility?: (categoryId: number, hidden: boolean) => Promise<void>
 }
 
 export default function BulkImportModal({
@@ -30,6 +31,7 @@ export default function BulkImportModal({
   categories,
   onAddCategory,
   onEditCategory,
+  onToggleVisibility,
 }: BulkImportModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<File[]>([])
@@ -226,6 +228,7 @@ export default function BulkImportModal({
                 includeRoot={false}
                 onAddCategory={onAddCategory}
                 onEditCategory={onEditCategory}
+                onToggleVisibility={onToggleVisibility}
               />
             </Box>
 

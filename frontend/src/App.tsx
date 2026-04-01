@@ -368,7 +368,13 @@ export default function App() {
     return { cats: node, imgs: [] }
   }, [categories, path])
 
-  const { cats: currentCategories, imgs: currentImages } = resolve()
+  const { cats: resolvedCategories, imgs: currentImages } = resolve()
+
+  // Filter out hidden categories for students in browse mode
+  const isStudent = currentUser?.role === 'student'
+  const currentCategories = isStudent
+    ? resolvedCategories.filter((c) => c.status !== 'hidden')
+    : resolvedCategories
 
   const clearImage = useCallback(() => {
     setSelectedImage(null)
@@ -421,6 +427,18 @@ export default function App() {
         await loadCategories()
       } catch (err) {
         console.error('Failed to rename category', err)
+      }
+    },
+    [loadCategories],
+  )
+
+  const toggleCategoryVisibility = useCallback(
+    async (categoryId: number, hidden: boolean) => {
+      try {
+        await apiUpdateCategory(categoryId, { status: hidden ? 'hidden' : 'active' })
+        await loadCategories()
+      } catch (err) {
+        console.error('Failed to toggle category visibility', err)
       }
     },
     [loadCategories],
@@ -684,6 +702,7 @@ export default function App() {
             <ManagePage
               categories={categories}
               onEditCategory={editCategoryInline}
+              onToggleVisibility={toggleCategoryVisibility}
               onViewImage={(img) => {
                 setSelectedImage({
                   id: img.id,
@@ -1001,6 +1020,7 @@ export default function App() {
         onAddCategory={addCategoryInline}
         onDeleteCategory={deleteCategoryInline}
         onEditCategory={editCategoryInline}
+        onToggleVisibility={toggleCategoryVisibility}
       />
 
       {/* Move category dialog */}
@@ -1015,6 +1035,7 @@ export default function App() {
         categories={categories}
         onAddCategory={addCategoryInline}
         onEditCategory={editCategoryInline}
+        onToggleVisibility={toggleCategoryVisibility}
       />
 
       {/* Image edit modal (viewer page) */}
@@ -1027,6 +1048,7 @@ export default function App() {
         programs={programs}
         onAddCategory={addCategoryInline}
         onEditCategory={editCategoryInline}
+        onToggleVisibility={toggleCategoryVisibility}
       />
 
       {/* Upload image modal */}
@@ -1042,6 +1064,7 @@ export default function App() {
         programs={programs}
         onAddCategory={addCategoryInline}
         onEditCategory={editCategoryInline}
+        onToggleVisibility={toggleCategoryVisibility}
       />
 
       {/* Self-edit profile modal */}

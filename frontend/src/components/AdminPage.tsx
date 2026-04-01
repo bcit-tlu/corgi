@@ -102,6 +102,18 @@ export default function AdminPage({ onAnnouncementChange }: AdminPageProps) {
     [loadCategories],
   )
 
+  const toggleCategoryVisibility = useCallback(
+    async (categoryId: number, hidden: boolean) => {
+      try {
+        await apiUpdateCategory(categoryId, { status: hidden ? 'hidden' : 'active' })
+        await loadCategories()
+      } catch (err) {
+        console.error('Failed to toggle category visibility', err)
+      }
+    },
+    [loadCategories],
+  )
+
   useEffect(() => {
     loadCategories()
   }, [loadCategories])
@@ -347,6 +359,7 @@ export default function AdminPage({ onAnnouncementChange }: AdminPageProps) {
         categories={categories}
         onAddCategory={addCategoryInline}
         onEditCategory={editCategoryInline}
+        onToggleVisibility={toggleCategoryVisibility}
       />
     </Box>
   )

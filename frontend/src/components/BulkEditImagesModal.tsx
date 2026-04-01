@@ -36,6 +36,7 @@ interface BulkEditImagesModalProps {
   selectedCount: number
   onAddCategory?: (label: string, parentId: number | null) => Promise<void>
   onEditCategory?: (categoryId: number, newLabel: string) => Promise<void>
+  onToggleVisibility?: (categoryId: number, hidden: boolean) => Promise<void>
 }
 
 export default function BulkEditImagesModal({
@@ -48,6 +49,7 @@ export default function BulkEditImagesModal({
   selectedCount,
   onAddCategory,
   onEditCategory,
+  onToggleVisibility,
 }: BulkEditImagesModalProps) {
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [categoryChanged, setCategoryChanged] = useState(false)
@@ -153,6 +155,7 @@ export default function BulkEditImagesModal({
             label="Move to Category"
             onAddCategory={onAddCategory}
             onEditCategory={onEditCategory}
+            onToggleVisibility={onToggleVisibility}
           />
         </Box>
         <TextField

@@ -39,6 +39,7 @@ interface EditImageModalProps {
   programs: Program[]
   onAddCategory?: (label: string, parentId: number | null) => Promise<void>
   onEditCategory?: (categoryId: number, newLabel: string) => Promise<void>
+  onToggleVisibility?: (categoryId: number, hidden: boolean) => Promise<void>
 }
 
 function EditImageForm({
@@ -49,6 +50,7 @@ function EditImageForm({
   programs,
   onAddCategory,
   onEditCategory,
+  onToggleVisibility,
 }: Omit<EditImageModalProps, 'open'>) {
   const [name, setName] = useState(image?.name ?? '')
   const [categoryId, setCategoryId] = useState<number | null>(image?.category_id ?? null)
@@ -190,6 +192,7 @@ function EditImageForm({
             onChange={setCategoryId}
             onAddCategory={onAddCategory}
             onEditCategory={onEditCategory}
+            onToggleVisibility={onToggleVisibility}
           />
         </Box>
         <TextField
@@ -276,6 +279,7 @@ export default function EditImageModal({
   programs,
   onAddCategory,
   onEditCategory,
+  onToggleVisibility,
 }: EditImageModalProps) {
   const formKey = image ? `edit-${image.id}` : 'closed'
 
@@ -291,6 +295,7 @@ export default function EditImageModal({
           programs={programs}
           onAddCategory={onAddCategory}
           onEditCategory={onEditCategory}
+          onToggleVisibility={onToggleVisibility}
         />
       )}
     </Dialog>

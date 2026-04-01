@@ -9,7 +9,9 @@ import Select from '@mui/material/Select'
 import Tooltip from '@mui/material/Tooltip'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
+import DisabledVisibleIcon from '@mui/icons-material/DisabledVisible'
 import EditIcon from '@mui/icons-material/Edit'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import type { Category } from '../types'
 import { MAX_DEPTH } from '../types'
@@ -20,6 +22,7 @@ interface FlatOption {
   id: number
   label: string
   depth: number
+  status: string | null
 }
 
 function flattenTree(
@@ -30,7 +33,7 @@ function flattenTree(
   const result: FlatOption[] = []
   for (const node of nodes) {
     if (excludeIds?.has(node.id)) continue
-    result.push({ id: node.id, label: node.label, depth })
+    result.push({ id: node.id, label: node.label, depth, status: node.status ?? 'active' })
     result.push(...flattenTree(node.children, depth + 1, excludeIds))
   }
   return result
@@ -68,6 +71,8 @@ interface CategoryPickerSelectProps {
   onDeleteCategory?: (categoryId: number) => Promise<void>
   /** When provided, a pencil button appears on each menu item to rename that category. */
   onEditCategory?: (categoryId: number, newLabel: string) => Promise<void>
+  /** When provided, a visibility toggle appears on each menu item. */
+  onToggleVisibility?: (categoryId: number, hidden: boolean) => Promise<void>
 }
 
 export default function CategoryPickerSelect({
@@ -80,6 +85,7 @@ export default function CategoryPickerSelect({
   onAddCategory,
   onDeleteCategory,
   onEditCategory,
+  onToggleVisibility,
 }: CategoryPickerSelectProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [addParentId, setAddParentId] = useState<number | null>(null)
@@ -185,8 +191,27 @@ export default function CategoryPickerSelect({
                 }}
               >
                 <ListItemText>
-                  {'  '.repeat(opt.depth)}{opt.depth > 0 ? '\u2514 ' : ''}{opt.label}
+                  {'  '.repeat(opt.depth)}{opt.depth > 0 ? '\u2514 ' : ''}<span style={{ opacity: opt.status === 'hidden' ? 0.5 : 1 }}>{opt.label}</span>
                 </ListItemText>
+                {onToggleVisibility && (
+                  <Tooltip title={opt.status === 'hidden' ? 'Show to students' : 'Hide from students'}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        onToggleVisibility(opt.id, opt.status !== 'hidden')
+                      }}
+                      sx={{ p: 0.5 }}
+                    >
+                      {opt.status === 'hidden' ? (
+                        <DisabledVisibleIcon fontSize="small" color="disabled" />
+                      ) : (
+                        <VisibilityIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                )}
                 {onEditCategory && (
                   <Tooltip title="Rename category">
                     <IconButton

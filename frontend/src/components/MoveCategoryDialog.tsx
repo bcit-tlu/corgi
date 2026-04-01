@@ -16,6 +16,7 @@ interface MoveCategoryDialogProps {
   categories: Category[]
   onAddCategory?: (label: string, parentId: number | null) => Promise<void>
   onEditCategory?: (categoryId: number, newLabel: string) => Promise<void>
+  onToggleVisibility?: (categoryId: number, hidden: boolean) => Promise<void>
 }
 
 export default function MoveCategoryDialog({
@@ -26,6 +27,7 @@ export default function MoveCategoryDialog({
   categories,
   onAddCategory,
   onEditCategory,
+  onToggleVisibility,
 }: MoveCategoryDialogProps) {
   const [newParentId, setNewParentId] = useState<number | null>(null)
 
@@ -55,6 +57,7 @@ export default function MoveCategoryDialog({
           excludeCategoryId={category?.id}
           onAddCategory={onAddCategory}
           onEditCategory={onEditCategory}
+          onToggleVisibility={onToggleVisibility}
         />
       </DialogContent>
       <DialogActions>
