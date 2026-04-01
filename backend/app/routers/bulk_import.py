@@ -39,6 +39,9 @@ _IMAGE_EXTENSIONS = {
 # Maximum concurrent tile-generation tasks per bulk import
 _MAX_CONCURRENCY = 4
 
+# 1 MiB chunks for streaming large uploads to disk
+_UPLOAD_CHUNK_SIZE = 1024 * 1024
+
 
 def _is_image_filename(filename: str) -> bool:
     """Return True if the filename has a recognised image extension."""
@@ -202,16 +205,21 @@ async def bulk_import_images(
             if not upload.filename:
                 continue
 
-            contents = await upload.read()
-
             # Handle zip files
             if upload.filename.lower().endswith(".zip"):
-                # Write zip to a temp file, then extract images
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
-                    tmp.write(contents)
-                    tmp_path = tmp.name
-
+                # Stream zip to a temp file, then extract images.
+                # The try/finally wraps the entire lifecycle so the
+                # temp file is cleaned up even if streaming fails.
+                tmp_path: str | None = None
                 try:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+                        tmp_path = tmp.name
+                        while True:
+                            chunk = await upload.read(_UPLOAD_CHUNK_SIZE)
+                            if not chunk:
+                                break
+                            tmp.write(chunk)
+
                     with zipfile.ZipFile(tmp_path, "r") as zf:
                         for zip_entry in zf.namelist():
                             # Skip directories and hidden/system files
@@ -239,7 +247,11 @@ async def bulk_import_images(
                         detail=f"File '{upload.filename}' is not a valid zip archive",
                     )
                 finally:
-                    os.unlink(tmp_path)
+                    if tmp_path is not None:
+                        try:
+                            os.unlink(tmp_path)
+                        except OSError:
+                            pass
             else:
                 # Regular image file
                 if not _is_image_filename(upload.filename):
@@ -249,8 +261,13 @@ async def bulk_import_images(
                 unique_name = f"{uuid.uuid4().hex}{ext}"
                 stored_path = os.path.join(settings.source_images_dir, unique_name)
 
+                # Stream to disk in chunks (handles large TIFFs)
                 with open(stored_path, "wb") as f:
-                    f.write(contents)
+                    while True:
+                        chunk = await upload.read(_UPLOAD_CHUNK_SIZE)
+                        if not chunk:
+                            break
+                        f.write(chunk)
 
                 file_entries.append((upload.filename, stored_path))
     except Exception:
