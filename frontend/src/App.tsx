@@ -23,6 +23,7 @@ import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder'
 import EditIcon from '@mui/icons-material/Edit'
 import HomeIcon from '@mui/icons-material/Home'
 import LinkIcon from '@mui/icons-material/Link'
+import SearchIcon from '@mui/icons-material/Search'
 import ImageViewer from './components/ImageViewer'
 import type { ViewportState } from './components/ImageViewer'
 import CategoryTile from './components/CategoryTile'
@@ -37,6 +38,7 @@ import LoginScreen from './components/LoginScreen'
 import EditImageModal from './components/EditImageModal'
 import type { ImageFormData } from './components/EditImageModal'
 import ReportIssueModal from './components/ReportIssueModal'
+import SearchModal from './components/SearchModal'
 import UploadImageModal from './components/UploadImageModal'
 import { useAuth } from './useAuth'
 import {
@@ -46,6 +48,7 @@ import {
   createCategory as apiCreateCategory,
   deleteCategory as apiDeleteCategory,
   updateCategory as apiUpdateCategory,
+  fetchUsers,
 } from './api'
 import type { ApiCategoryTree, ApiImage, ApiUser } from './api'
 import { updateUser as apiUpdateUser, fetchPrograms as apiFetchPrograms, updateImage as apiUpdateImage } from './api'
@@ -139,6 +142,10 @@ export default function App() {
   // Report issue modal state
   const [reportIssueOpen, setReportIssueOpen] = useState(false)
 
+  // Search modal state
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchUsers, setSearchUsers] = useState<ApiUser[]>([])
+
   // Move category dialog state
   const [moveCatOpen, setMoveCatOpen] = useState(false)
   const [movingCategory, setMovingCategory] = useState<Category | null>(null)
@@ -225,7 +232,18 @@ export default function App() {
     setEditModalOpen(false)
     setImageEditOpen(false)
     setBrowseEditImage(null)
+    setSearchOpen(false)
+    setSearchUsers([])
   }, [currentUser])
+
+  // Load users for search when modal opens (admin/instructor only)
+  useEffect(() => {
+    if (searchOpen && canManageUsers) {
+      fetchUsers()
+        .then(setSearchUsers)
+        .catch(() => setSearchUsers([]))
+    }
+  }, [searchOpen, canManageUsers])
 
   const loadCategories = useCallback(async () => {
     try {
@@ -644,6 +662,15 @@ export default function App() {
             {canManageUsers && <Tab label="Admin" value="admin" />}
           </Tabs>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Tooltip title="Search">
+              <IconButton
+                onClick={() => setSearchOpen(true)}
+                sx={{ color: 'inherit' }}
+                aria-label="Search"
+              >
+                <SearchIcon />
+              </IconButton>
+            </Tooltip>
             <IconButton
               ref={avatarRef}
               onClick={() => setProfileOpen(true)}
@@ -1157,6 +1184,33 @@ export default function App() {
       <ReportIssueModal
         open={reportIssueOpen}
         onClose={() => setReportIssueOpen(false)}
+      />
+
+      {/* Search modal */}
+      <SearchModal
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        categories={categories}
+        uncategorizedImages={uncategorizedImages}
+        programs={programs}
+        users={searchUsers}
+        onSelectCategory={(catPath) => {
+          setPage('browse')
+          setPath(catPath)
+          clearImage()
+        }}
+        onSelectImage={(image, catPath) => {
+          setPage('browse')
+          setPath(catPath)
+          setSelectedImage(image)
+          setViewportState(undefined)
+        }}
+        onSelectProgram={() => {
+          if (canManageUsers) setPage('people')
+        }}
+        onSelectUser={() => {
+          if (canManageUsers) setPage('people')
+        }}
       />
 
       {/* Share-link snackbar */}
