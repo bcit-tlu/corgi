@@ -377,10 +377,14 @@ export async function uploadSourceImage(
     }
 
     xhr.addEventListener('load', () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(JSON.parse(xhr.responseText) as ApiSourceImage)
-      } else {
-        reject(new Error(`Upload failed: ${xhr.responseText || xhr.statusText}`))
+      try {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText) as ApiSourceImage)
+        } else {
+          reject(new Error(`Upload failed: ${xhr.responseText || xhr.statusText}`))
+        }
+      } catch (e) {
+        reject(e instanceof Error ? e : new Error('Failed to parse upload response'))
       }
     })
 
