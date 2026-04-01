@@ -2,14 +2,21 @@ import { useState, useMemo, useCallback } from 'react'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
+import Chip from '@mui/material/Chip'
 import Dialog from '@mui/material/Dialog'
 import DialogContent from '@mui/material/DialogContent'
 import InputAdornment from '@mui/material/InputAdornment'
 import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import CategoryIcon from '@mui/icons-material/Folder'
+import CopyrightIcon from '@mui/icons-material/Copyright'
+import EmailIcon from '@mui/icons-material/Email'
 import ImageIcon from '@mui/icons-material/Image'
+import LabelIcon from '@mui/icons-material/Label'
+import NoteIcon from '@mui/icons-material/StickyNote2'
 import PersonIcon from '@mui/icons-material/Person'
+import BadgeIcon from '@mui/icons-material/Badge'
 import SchoolIcon from '@mui/icons-material/School'
 import SearchIcon from '@mui/icons-material/Search'
 import type { Category, ImageItem, Program } from '../types'
@@ -57,8 +64,36 @@ interface UserPayload {
   userId: number
 }
 
-// ── Helpers ────────────────────────────────────────────
+// ── Filter definitions ─────────────────────────────────
 
+type TypeFilter = ResultKind
+type FieldFilter = 'Name' | 'Copyright' | 'Note' | 'Email' | 'Role'
+
+interface FilterDef<T extends string> {
+  key: T
+  label: string
+  icon: React.ReactElement
+  tooltip: string
+}
+
+const TYPE_FILTERS: FilterDef<TypeFilter>[] = [
+  { key: 'category', label: 'Categories', icon: <CategoryIcon fontSize="small" />, tooltip: 'Show only categories' },
+  { key: 'image', label: 'Images', icon: <ImageIcon fontSize="small" />, tooltip: 'Show only images' },
+  { key: 'program', label: 'Programs', icon: <SchoolIcon fontSize="small" />, tooltip: 'Show only programs' },
+  { key: 'user', label: 'People', icon: <PersonIcon fontSize="small" />, tooltip: 'Show only people' },
+]
+
+const FIELD_FILTERS: FilterDef<FieldFilter>[] = [
+  { key: 'Name', label: 'Name', icon: <LabelIcon fontSize="small" />, tooltip: 'Name field only' },
+  { key: 'Copyright', label: 'Copyright', icon: <CopyrightIcon fontSize="small" />, tooltip: 'Copyright field only' },
+  { key: 'Note', label: 'Note', icon: <NoteIcon fontSize="small" />, tooltip: 'Note field only' },
+  { key: 'Email', label: 'Email', icon: <EmailIcon fontSize="small" />, tooltip: 'Email field only' },
+  { key: 'Role', label: 'Role', icon: <BadgeIcon fontSize="small" />, tooltip: 'Role field only' },
+]
+
+// ── Constants ──────────────────────────────────────────
+
+const MAX_RESULTS = 50
 const CONTEXT_CHARS = 40
 
 function contextSnippet(
@@ -100,11 +135,27 @@ function labelForKind(kind: ResultKind): string {
   }
 }
 
+/** Find the first match of any term in `terms` within `text` (case-insensitive). */
+function findFirstTermMatch(
+  text: string,
+  terms: string[],
+): { index: number; length: number } | null {
+  const lower = text.toLowerCase()
+  let best: { index: number; length: number } | null = null
+  for (const term of terms) {
+    const idx = lower.indexOf(term)
+    if (idx !== -1 && (best === null || idx < best.index)) {
+      best = { index: idx, length: term.length }
+    }
+  }
+  return best
+}
+
 // ── Tree traversal helpers ─────────────────────────────
 
 function collectCategoryResults(
   cats: Category[],
-  query: string,
+  terms: string[],
   path: Category[],
   results: SearchResult[],
   excludeHidden: boolean,
@@ -112,26 +163,26 @@ function collectCategoryResults(
   for (const cat of cats) {
     if (excludeHidden && cat.status === 'hidden') continue
     const currentPath = [...path, cat]
-    const idx = cat.label.toLowerCase().indexOf(query)
-    if (idx !== -1) {
+    const m = findFirstTermMatch(cat.label, terms)
+    if (m) {
       results.push({
         kind: 'category',
         id: cat.id,
         label: cat.label,
         field: 'Name',
         fieldValue: cat.label,
-        matchIndex: idx,
-        matchLength: query.length,
+        matchIndex: m.index,
+        matchLength: m.length,
         payload: { kind: 'category', categoryPath: currentPath },
       })
     }
-    collectCategoryResults(cat.children, query, currentPath, results, excludeHidden)
+    collectCategoryResults(cat.children, terms, currentPath, results, excludeHidden)
   }
 }
 
 function collectImageResults(
   cats: Category[],
-  query: string,
+  terms: string[],
   path: Category[],
   results: SearchResult[],
   excludeHidden: boolean,
@@ -140,15 +191,15 @@ function collectImageResults(
     if (excludeHidden && cat.status === 'hidden') continue
     const currentPath = [...path, cat]
     for (const img of cat.images) {
-      addImageMatches(img, query, currentPath, results)
+      addImageMatches(img, terms, currentPath, results)
     }
-    collectImageResults(cat.children, query, currentPath, results, excludeHidden)
+    collectImageResults(cat.children, terms, currentPath, results, excludeHidden)
   }
 }
 
 function addImageMatches(
   img: ImageItem,
-  query: string,
+  terms: string[],
   categoryPath: Category[],
   results: SearchResult[],
 ): void {
@@ -160,16 +211,16 @@ function addImageMatches(
   for (let fi = 0; fi < fields.length; fi++) {
     const { field, value } = fields[fi]
     if (!value) continue
-    const idx = value.toLowerCase().indexOf(query)
-    if (idx !== -1) {
+    const m = findFirstTermMatch(value, terms)
+    if (m) {
       results.push({
         kind: 'image',
         id: img.id * 1000 + fi,
         label: img.name,
         field,
         fieldValue: value,
-        matchIndex: idx,
-        matchLength: query.length,
+        matchIndex: m.index,
+        matchLength: m.length,
         payload: { kind: 'image', image: img, categoryPath },
       })
     }
@@ -207,44 +258,77 @@ export default function SearchModal({
 }: SearchModalProps) {
   const [query, setQuery] = useState('')
   const [prevOpen, setPrevOpen] = useState(false)
+  const [typeFilters, setTypeFilters] = useState<Set<TypeFilter>>(new Set())
+  const [fieldFilters, setFieldFilters] = useState<Set<FieldFilter>>(new Set())
 
-  // Reset query when modal opens (derived state pattern instead of effect)
+  // Reset state when modal opens (derived state pattern instead of effect)
   if (open && !prevOpen) {
     setQuery('')
+    setTypeFilters(new Set())
+    setFieldFilters(new Set())
   }
   if (open !== prevOpen) {
     setPrevOpen(open)
   }
 
+  const toggleTypeFilter = useCallback((key: TypeFilter) => {
+    setTypeFilters((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }, [])
+
+  const toggleFieldFilter = useCallback((key: FieldFilter) => {
+    setFieldFilters((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }, [])
+
   const buildResults = useCallback(
     (q: string): SearchResult[] => {
-      if (!q) return []
-      const lowerQ = q.toLowerCase()
+      if (!q.trim()) return []
+      // Split query into individual terms (union search)
+      const terms = q
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length > 0)
+      if (terms.length === 0) return []
       const results: SearchResult[] = []
 
       // 1. Categories
-      collectCategoryResults(categories, lowerQ, [], results, isStudent)
+      collectCategoryResults(categories, terms, [], results, isStudent)
 
       // 2. Images within category tree
-      collectImageResults(categories, lowerQ, [], results, isStudent)
+      collectImageResults(categories, terms, [], results, isStudent)
 
       // 3. Uncategorized images
       for (const img of uncategorizedImages) {
-        addImageMatches(img, lowerQ, [], results)
+        addImageMatches(img, terms, [], results)
       }
 
       // 4. Programs
       for (const prog of programs) {
-        const idx = prog.name.toLowerCase().indexOf(lowerQ)
-        if (idx !== -1) {
+        const m = findFirstTermMatch(prog.name, terms)
+        if (m) {
           results.push({
             kind: 'program',
             id: prog.id,
             label: prog.name,
             field: 'Name',
             fieldValue: prog.name,
-            matchIndex: idx,
-            matchLength: lowerQ.length,
+            matchIndex: m.index,
+            matchLength: m.length,
             payload: { kind: 'program', programId: prog.id },
           })
         }
@@ -259,16 +343,16 @@ export default function SearchModal({
         ]
         for (let fi = 0; fi < userFields.length; fi++) {
           const { field, value } = userFields[fi]
-          const idx = value.toLowerCase().indexOf(lowerQ)
-          if (idx !== -1) {
+          const m = findFirstTermMatch(value, terms)
+          if (m) {
             results.push({
               kind: 'user',
               id: user.id * 1000 + fi,
               label: user.name,
               field,
               fieldValue: value,
-              matchIndex: idx,
-              matchLength: lowerQ.length,
+              matchIndex: m.index,
+              matchLength: m.length,
               payload: { kind: 'user', userId: user.id },
             })
           }
@@ -280,7 +364,24 @@ export default function SearchModal({
     [categories, uncategorizedImages, programs, users, isStudent],
   )
 
-  const results = useMemo(() => buildResults(query), [query, buildResults])
+  const allResults = useMemo(() => buildResults(query), [query, buildResults])
+
+  // Apply type and field filters, then cap at MAX_RESULTS
+  const filteredResults = useMemo(() => {
+    let filtered = allResults
+    if (typeFilters.size > 0) {
+      filtered = filtered.filter((r) => typeFilters.has(r.kind))
+    }
+    if (fieldFilters.size > 0) {
+      filtered = filtered.filter((r) => fieldFilters.has(r.field as FieldFilter))
+    }
+    return filtered
+  }, [allResults, typeFilters, fieldFilters])
+
+  const displayResults = useMemo(
+    () => filteredResults.slice(0, MAX_RESULTS),
+    [filteredResults],
+  )
 
   const handleSelect = (result: SearchResult) => {
     onClose()
@@ -335,6 +436,43 @@ export default function SearchModal({
           }}
         />
 
+        {/* Filter chips */}
+        {query.trim().length > 0 && allResults.length > 0 && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center', mr: 0.5 }}>
+              Type:
+            </Typography>
+            {TYPE_FILTERS.map((f) => (
+              <Tooltip key={f.key} title={f.tooltip}>
+                <Chip
+                  icon={f.icon}
+                  label={f.label}
+                  size="small"
+                  variant={typeFilters.has(f.key) ? 'filled' : 'outlined'}
+                  color={typeFilters.has(f.key) ? 'primary' : 'default'}
+                  onClick={() => toggleTypeFilter(f.key)}
+                />
+              </Tooltip>
+            ))}
+            <Box sx={{ mx: 0.5, borderLeft: 1, borderColor: 'divider' }} />
+            <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center', mr: 0.5 }}>
+              Field:
+            </Typography>
+            {FIELD_FILTERS.map((f) => (
+              <Tooltip key={f.key} title={f.tooltip}>
+                <Chip
+                  icon={f.icon}
+                  label={f.label}
+                  size="small"
+                  variant={fieldFilters.has(f.key) ? 'filled' : 'outlined'}
+                  color={fieldFilters.has(f.key) ? 'primary' : 'default'}
+                  onClick={() => toggleFieldFilter(f.key)}
+                />
+              </Tooltip>
+            ))}
+          </Box>
+        )}
+
         <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
           {query.trim().length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 200 }}>
@@ -342,7 +480,7 @@ export default function SearchModal({
                 Start typing to search&hellip;
               </Typography>
             </Box>
-          ) : results.length === 0 ? (
+          ) : filteredResults.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 200 }}>
               <Typography variant="body1" color="text.secondary">
                 No results found for &ldquo;{query}&rdquo;
@@ -351,9 +489,11 @@ export default function SearchModal({
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                {results.length} result{results.length !== 1 ? 's' : ''}
+                {filteredResults.length > MAX_RESULTS
+                  ? `Showing ${MAX_RESULTS} of ${filteredResults.length} results`
+                  : `${filteredResults.length} result${filteredResults.length !== 1 ? 's' : ''}`}
               </Typography>
-              {results.map((result, i) => {
+              {displayResults.map((result, i) => {
                 const { before, match, after } = contextSnippet(
                   result.fieldValue,
                   result.matchIndex,
