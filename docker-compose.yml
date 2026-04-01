@@ -30,6 +30,8 @@ services:
       - DATABASE_URL=postgresql+asyncpg://corgi:corgi@db:5432/corgi
       - SOURCE_IMAGES_DIR=/data/source_images
       - TILES_DIR=/data/tiles
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_REPO=${GITHUB_REPO:-}
     depends_on:
       db:
         condition: service_healthy
@@ -49,6 +51,7 @@ services:
       - ./frontend/tsconfig.app.json:/app/tsconfig.app.json
     environment:
       - NODE_ENV=development
+      - VITE_APP_VERSION=${APP_VERSION:-dev}
     depends_on:
       - backend
 

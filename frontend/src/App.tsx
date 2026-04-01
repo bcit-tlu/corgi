@@ -36,6 +36,7 @@ import PeoplePage from './components/PeoplePage'
 import LoginScreen from './components/LoginScreen'
 import EditImageModal from './components/EditImageModal'
 import type { ImageFormData } from './components/EditImageModal'
+import ReportIssueModal from './components/ReportIssueModal'
 import UploadImageModal from './components/UploadImageModal'
 import { useAuth } from './useAuth'
 import {
@@ -134,6 +135,9 @@ export default function App() {
   const pendingImageId = useRef<number | null>(null)
   const pendingViewport = useRef<ViewportState | undefined>(undefined)
   const uncategorizedLoaded = useRef(false)
+
+  // Report issue modal state
+  const [reportIssueOpen, setReportIssueOpen] = useState(false)
 
   // Move category dialog state
   const [moveCatOpen, setMoveCatOpen] = useState(false)
@@ -1039,16 +1043,29 @@ export default function App() {
       <Box
         component="footer"
         sx={{
-          py: 2,
-          textAlign: 'center',
+          py: 1,
+          px: 2,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           bgcolor: 'background.default',
           borderTop: 1,
           borderColor: 'divider',
         }}
       >
         <Typography variant="caption" color="text.secondary">
-          Built with React, Vite, Material UI &amp; OpenSeadragon
+          {import.meta.env.VITE_APP_VERSION || 'dev'}
         </Typography>
+        <Link
+          component="button"
+          variant="caption"
+          color="text.secondary"
+          underline="hover"
+          onClick={() => setReportIssueOpen(true)}
+          sx={{ cursor: 'pointer' }}
+        >
+          Report issue
+        </Link>
       </Box>
 
       {/* Manage categories dialog */}
@@ -1134,6 +1151,12 @@ export default function App() {
         }}
         programs={programs}
         user={currentApiUser}
+      />
+
+      {/* Report issue modal */}
+      <ReportIssueModal
+        open={reportIssueOpen}
+        onClose={() => setReportIssueOpen(false)}
       />
 
       {/* Share-link snackbar */}

@@ -25,6 +25,8 @@ spec:
           env:
             - name: BACKEND_URL
               value: {{ .Values.env.BACKEND_URL | quote }}
+            - name: APP_VERSION
+              value: {{ .Values.env.APP_VERSION | default .Chart.AppVersion | quote }}
           livenessProbe:
             httpGet:
               path: /

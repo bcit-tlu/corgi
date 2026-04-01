@@ -32,6 +32,15 @@ spec:
               value: {{ .Values.env.SOURCE_IMAGES_DIR | quote }}
             - name: TILES_DIR
               value: {{ .Values.env.TILES_DIR | quote }}
+            {{- if .Values.vault.enabled }}
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "corgi-backend.fullname" . }}-github-pat
+                  key: token
+            {{- end }}
+            - name: GITHUB_REPO
+              value: {{ .Values.env.GITHUB_REPO | quote }}
           livenessProbe:
             httpGet:
               path: /api/health

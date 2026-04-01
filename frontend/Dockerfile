@@ -22,6 +22,8 @@ FROM deps AS build
 COPY . .
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
+ARG VITE_APP_VERSION
+ENV VITE_APP_VERSION=${VITE_APP_VERSION}
 RUN npm run build
 
 # ── Stage 4: Production server (nginx) ───────────────────
