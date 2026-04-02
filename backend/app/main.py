@@ -10,13 +10,16 @@ from .database import settings
 from .logging_config import setup_logging
 from .routers import admin, announcement, auth, bulk_import, categories, images, issues, programs, upload, users
 
-# Initialise structured JSON logging before anything else runs.
-setup_logging()
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialise structured JSON logging inside the lifespan handler so it
+    # runs *after* uvicorn has applied its default logging.config.dictConfig.
+    # This ensures our JSON formatter and level overrides stick.
+    setup_logging()
+
     logger.info(
         "Application started",
         extra={
