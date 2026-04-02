@@ -503,23 +503,19 @@ export async function importDatabase(file: File): Promise<ImportResult> {
 
 // ── Filesystem Snapshots ────────────────────────────────
 
-export function exportFiles(): Promise<void> {
-  const url = `${BASE}/api/admin/export-files`
-  return fetch(url, { headers: authHeaders() })
-    .then((res) => {
-      if (!res.ok) throw new Error(`File export failed: ${res.status}`)
-      const disposition = res.headers.get('Content-Disposition') ?? ''
-      const match = disposition.match(/filename=([\w.-]+)/)
-      const filename = match ? match[1] : 'corgi-files.tar.gz'
-      return res.blob().then((blob) => ({ blob, filename }))
-    })
-    .then(({ blob, filename }) => {
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(a.href)
-    })
+export async function exportFiles(): Promise<void> {
+  // Obtain a short-lived download token so we can hand the URL directly
+  // to the browser.  This avoids buffering the entire archive in JS memory
+  // (res.blob()) which would crash on multi-GB datasets.
+  const tokenRes = await fetch(`${BASE}/api/admin/export-files-token`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  if (!tokenRes.ok) throw new Error(`Failed to obtain download token: ${tokenRes.status}`)
+  const { token } = (await tokenRes.json()) as { token: string }
+
+  // Browser-native download — no JS buffering required
+  window.location.href = `${BASE}/api/admin/export-files?token=${encodeURIComponent(token)}`
 }
 
 export interface FilesImportResult {
