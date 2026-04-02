@@ -67,7 +67,7 @@ app-chart
 app-chart/**
 
 # Secrets
-**/secrets*
+#**/secrets*
 
 # Logs
 *.log
