@@ -22,6 +22,17 @@ import sys
 from datetime import datetime, timezone
 
 
+# Attributes that stdlib's logging.LogRecord always carries.  Anything on a
+# record that is NOT in this set was injected via ``extra={...}`` and should
+# be forwarded into the JSON output automatically.
+_LOGRECORD_BUILTIN_ATTRS = frozenset({
+    "args", "created", "exc_info", "exc_text", "filename", "funcName",
+    "levelname", "levelno", "lineno", "message", "module", "msecs", "msg",
+    "name", "pathname", "process", "processName", "relativeCreated",
+    "stack_info", "taskName", "thread", "threadName",
+})
+
+
 class JSONFormatter(logging.Formatter):
     """Format log records as single-line JSON objects."""
 
@@ -35,25 +46,12 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
-        # Promote well-known extra fields to top level
-        _EXTRA_KEYS = {
-            "event",
-            "source_image_id",
-            "image_id",
-            "job_id",
-            "filename",
-            "category_id",
-            "user_id",
-            "user_email",
-            "duration_ms",
-            "total_count",
-            "completed_count",
-            "failed_count",
-            "detail",
-        }
-        for key in _EXTRA_KEYS:
-            value = getattr(record, key, None)
-            if value is not None:
+        # Automatically promote any extra fields the caller attached via
+        # ``extra={...}``.  We diff the record's ``__dict__`` against the
+        # set of attributes that stdlib's LogRecord always carries so that
+        # new fields never need to be registered in an allowlist.
+        for key, value in record.__dict__.items():
+            if key not in _LOGRECORD_BUILTIN_ATTRS and key not in log_entry:
                 log_entry[key] = value
 
         # Include exception info if present

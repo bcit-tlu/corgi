@@ -78,7 +78,7 @@ async def process_source_image(source_image_id: int) -> None:
             extra={
                 "event": "processing.started",
                 "source_image_id": src.id,
-                "filename": src.original_filename,
+                "original_filename": src.original_filename,
                 "category_id": src.category_id,
             },
         )
@@ -96,7 +96,7 @@ async def process_source_image(source_image_id: int) -> None:
                 extra={
                     "event": "processing.tiles_generated",
                     "source_image_id": src.id,
-                    "filename": src.original_filename,
+                    "original_filename": src.original_filename,
                     "duration_ms": round((t_tiles - t_start) * 1000),
                 },
             )
@@ -152,7 +152,7 @@ async def process_source_image(source_image_id: int) -> None:
                     "event": "processing.completed",
                     "source_image_id": src.id,
                     "image_id": img.id,
-                    "filename": src.original_filename,
+                    "original_filename": src.original_filename,
                     "category_id": src.category_id,
                     "duration_ms": duration_ms,
                 },
@@ -165,7 +165,7 @@ async def process_source_image(source_image_id: int) -> None:
                 extra={
                     "event": "processing.failed",
                     "source_image_id": src.id,
-                    "filename": src.original_filename,
+                    "original_filename": src.original_filename,
                     "duration_ms": duration_ms,
                 },
             )

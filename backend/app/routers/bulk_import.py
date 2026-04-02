@@ -88,7 +88,7 @@ async def _process_bulk_import(job_id: int, file_entries: list[tuple[str, str]])
                         extra={
                             "event": "bulk_import.image_failed",
                             "job_id": job_id,
-                            "filename": original_filename,
+                            "original_filename": original_filename,
                         },
                     )
                     error_entry = [{"filename": original_filename, "error": str(exc)}]
@@ -135,7 +135,7 @@ async def _process_bulk_import(job_id: int, file_entries: list[tuple[str, str]])
                 extra={
                     "event": "bulk_import.unexpected_error",
                     "job_id": job_id,
-                    "filename": original_filename,
+                    "original_filename": original_filename,
                 },
             )
             error_entry = [{"filename": original_filename, "error": str(exc)}]
@@ -156,7 +156,7 @@ async def _process_bulk_import(job_id: int, file_entries: list[tuple[str, str]])
                     extra={
                         "event": "bulk_import.counter_update_failed",
                         "job_id": job_id,
-                        "filename": original_filename,
+                        "original_filename": original_filename,
                     },
                 )
 

@@ -94,7 +94,7 @@ async def upload_source_image(
         extra={
             "event": "upload.accepted",
             "source_image_id": src.id,
-            "filename": file.filename,
+            "original_filename": file.filename,
             "category_id": category_id,
         },
     )
