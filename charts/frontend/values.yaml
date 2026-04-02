@@ -9,8 +9,17 @@ service:
     type: ClusterIP
     port: 8080
 
+# Backend service discovery.  The Helm template builds a cluster-
+# internal FQDN (<host>.<namespace>.svc.cluster.local:<port>) so that
+# DNS always resolves through kube-dns, avoiding corporate firewalls
+# that block non-443 traffic on public/node IPs.
+# Set BACKEND_URL to override the auto-constructed URL entirely.
+backend:
+    host: corgi-backend
+    port: 8000
+
 env:
-    BACKEND_URL: http://corgi-backend:8000
+    BACKEND_URL: ""
 
 ingress:
     enabled: false
