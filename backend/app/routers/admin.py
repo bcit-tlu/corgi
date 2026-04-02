@@ -2,21 +2,20 @@ import asyncio
 import json
 import logging
 import os
-import secrets as _secrets_mod
 import shutil
 import tarfile
 import tempfile
-import time as _time_mod
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import Response, StreamingResponse
+from jose import JWTError, jwt
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import require_role
+from ..auth import auth_settings, require_role
 from ..database import get_db, settings
 from ..models import Announcement, Category, Image, Program, SourceImage, User
 
@@ -398,11 +397,7 @@ def _parse_dt(value: str | None) -> datetime | None:
 # ---------------------------------------------------------------------------
 
 _CHUNK_SIZE = 1024 * 1024  # 1 MiB streaming chunks
-
-# Short-lived download tokens so the browser can perform a native download
-# (via window.location) without buffering the entire archive in JS memory.
-_download_tokens: dict[str, tuple[float, int]] = {}  # token -> (expires, user_id)
-_TOKEN_LIFETIME_SECONDS = 60
+_DOWNLOAD_TOKEN_EXPIRE_SECONDS = 60
 
 
 def _create_tar_file(data_dir: str, dest: str) -> None:
@@ -479,24 +474,24 @@ def _extract_and_restore(
 async def create_export_files_token(
     _user: Annotated[User, Depends(_admin)],
 ):
-    """Create a short-lived token for downloading the filesystem archive.
+    """Create a short-lived signed JWT for downloading the filesystem archive.
 
     The token is valid for 60 seconds and allows a single browser-native
     download via ``GET /admin/export-files?token=<token>``, avoiding the
     need to buffer the entire archive in browser memory.
+
+    Using a signed JWT (instead of an in-memory dict) ensures the token
+    is valid across all uvicorn workers in a multi-process deployment.
     """
-    token = _secrets_mod.token_urlsafe(32)
-    _download_tokens[token] = (
-        _time_mod.time() + _TOKEN_LIFETIME_SECONDS,
-        _user.id,
+    expire = datetime.now(timezone.utc) + timedelta(seconds=_DOWNLOAD_TOKEN_EXPIRE_SECONDS)
+    payload = {
+        "sub": str(_user.id),
+        "purpose": "file-export",
+        "exp": expire,
+    }
+    token = jwt.encode(
+        payload, auth_settings.jwt_secret, algorithm=auth_settings.jwt_algorithm
     )
-
-    # Housekeeping: remove expired tokens
-    now = _time_mod.time()
-    expired = [t for t, (exp, _uid) in _download_tokens.items() if exp < now]
-    for t in expired:
-        _download_tokens.pop(t, None)
-
     return {"token": token}
 
 
@@ -515,13 +510,27 @@ async def export_files(
     perform a native download (``window.location``) instead of buffering
     the entire archive in JavaScript memory.
     """
-    # Validate the download token
-    entry = _download_tokens.pop(token, None)
-    if entry is None or entry[0] < _time_mod.time():
+    # Validate the signed download token (JWT)
+    try:
+        payload = jwt.decode(
+            token,
+            auth_settings.jwt_secret,
+            algorithms=[auth_settings.jwt_algorithm],
+        )
+    except JWTError:
         raise HTTPException(
             status_code=401, detail="Invalid or expired download token"
         )
-    user = await db.get(User, entry[1])
+    if payload.get("purpose") != "file-export":
+        raise HTTPException(
+            status_code=401, detail="Invalid or expired download token"
+        )
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        raise HTTPException(
+            status_code=401, detail="Invalid or expired download token"
+        )
+    user = await db.get(User, int(user_id_str))
     if user is None or user.role != "admin":
         raise HTTPException(status_code=403, detail="Forbidden")
 
