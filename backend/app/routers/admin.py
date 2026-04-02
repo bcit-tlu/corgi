@@ -434,7 +434,7 @@ def _extract_and_restore(
 
     data_path = Path(data_dir)
     backup_path = data_path.with_name(
-        data_path.name + f".bak-{int(_time_mod.time())}"
+        data_path.name + f".bak-{int(datetime.now(timezone.utc).timestamp())}"
     )
 
     # Atomic-ish swap: rename existing data to backup, copy new data in.
