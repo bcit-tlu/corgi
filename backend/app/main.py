@@ -1,13 +1,38 @@
+import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .database import settings
+from .logging_config import setup_logging
 from .routers import admin, announcement, auth, bulk_import, categories, images, issues, programs, upload, users
 
-app = FastAPI(title="Corgi Image Library API", version="0.1.0")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialise structured JSON logging inside the lifespan handler so it
+    # runs *after* uvicorn has applied its default logging.config.dictConfig.
+    # This ensures our JSON formatter and level overrides stick.
+    setup_logging()
+
+    logger.info(
+        "Application started",
+        extra={
+            "event": "app.started",
+            "tiles_dir": settings.tiles_dir,
+            "source_images_dir": settings.source_images_dir,
+        },
+    )
+    yield
+    logger.info("Application shutting down", extra={"event": "app.shutdown"})
+
+
+app = FastAPI(title="Corgi Image Library API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
