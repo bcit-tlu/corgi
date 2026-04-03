@@ -74,25 +74,33 @@ function EditImageForm({
   const handleSave = () => {
     const trimmedName = name.trim()
     if (!trimmedName) return
-    // Build metadata_extra preserving any existing fields
-    const existingMeta = (image?.metadata_extra as Record<string, unknown>) ?? {}
+    // Only include metadata_extra when measurement fields have been touched
     const scaleNum = measurementScale.trim() ? Number(measurementScale) : undefined
     const unitStr = measurementUnit.trim() || undefined
-    const updatedMeta: Record<string, unknown> = {
-      ...existingMeta,
-      measurement_scale: scaleNum && !Number.isNaN(scaleNum) ? scaleNum : null,
-      measurement_unit: unitStr ?? null,
-    }
+    const hasScale = scaleNum !== undefined && !Number.isNaN(scaleNum)
+    const hasUnit = unitStr !== undefined
+    const existingMeta = (image?.metadata_extra as Record<string, unknown>) ?? {}
+    const hadMeasurement =
+      existingMeta.measurement_scale != null || existingMeta.measurement_unit != null
 
-    onSave({
+    const formData: ImageFormData = {
       name: trimmedName,
       category_id: categoryId,
       copyright: copyright.trim() || undefined,
       note: note.trim() || undefined,
       program_ids: programIds,
       active,
-      metadata_extra: updatedMeta,
-    })
+    }
+
+    if (hasScale || hasUnit || hadMeasurement) {
+      formData.metadata_extra = {
+        ...existingMeta,
+        measurement_scale: hasScale ? scaleNum : null,
+        measurement_unit: hasUnit ? unitStr : null,
+      }
+    }
+
+    onSave(formData)
   }
 
   return (
