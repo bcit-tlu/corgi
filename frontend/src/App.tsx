@@ -55,6 +55,7 @@ import {
   fetchCategoryTree,
   fetchAnnouncement,
   fetchUncategorizedImages,
+  fetchSourceImage,
   createCategory as apiCreateCategory,
   deleteCategory as apiDeleteCategory,
   updateCategory as apiUpdateCategory,
@@ -158,6 +159,15 @@ export default function App() {
   // Report issue modal state
   const [reportIssueOpen, setReportIssueOpen] = useState(false)
 
+  // Background image processing state
+  const [bgProcessingId, setBgProcessingId] = useState<number | null>(null)
+  const bgPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [processingSnack, setProcessingSnack] = useState<{
+    open: boolean
+    message: string
+    severity: 'info' | 'success' | 'error'
+  }>({ open: false, message: '', severity: 'info' })
+
   // Search modal state
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchUsers, setSearchUsers] = useState<ApiUser[]>([])
@@ -208,6 +218,62 @@ export default function App() {
         updated_at: '',
       }
     : null
+
+  // Background polling for image processing (when user dismisses modal during processing)
+  useEffect(() => {
+    if (bgProcessingId === null) return
+
+    // Show an info snackbar so user knows processing continues
+    setProcessingSnack({
+      open: true,
+      message: 'Image processing continues in the background…',
+      severity: 'info',
+    })
+
+    const poll = async () => {
+      try {
+        const src = await fetchSourceImage(bgProcessingId)
+        if (src.status === 'completed') {
+          setBgProcessingId(null)
+          if (bgPollRef.current) {
+            clearInterval(bgPollRef.current)
+            bgPollRef.current = null
+          }
+          // Refresh the data
+          loadCategories()
+          loadUncategorizedImages()
+          setProcessingSnack({
+            open: true,
+            message: 'Image processed successfully and is now available!',
+            severity: 'success',
+          })
+        } else if (src.status === 'failed') {
+          setBgProcessingId(null)
+          if (bgPollRef.current) {
+            clearInterval(bgPollRef.current)
+            bgPollRef.current = null
+          }
+          setProcessingSnack({
+            open: true,
+            message: src.error_message || 'Image processing failed.',
+            severity: 'error',
+          })
+        }
+      } catch {
+        // Network error — keep polling
+      }
+    }
+
+    poll()
+    bgPollRef.current = setInterval(poll, 3000)
+
+    return () => {
+      if (bgPollRef.current) {
+        clearInterval(bgPollRef.current)
+        bgPollRef.current = null
+      }
+    }
+  }, [bgProcessingId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load announcement (works for both logged-in and login page)
   const loadAnnouncement = useCallback(async () => {
@@ -1274,6 +1340,9 @@ export default function App() {
           loadCategories()
           loadUncategorizedImages()
         }}
+        onProcessingDismissed={(sourceImageId) => {
+          setBgProcessingId(sourceImageId)
+        }}
         categoryId={path.length > 0 ? path[path.length - 1].id : null}
         categories={categories}
         programs={programs}
@@ -1402,6 +1471,23 @@ export default function App() {
         message="Link copied to clipboard"
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
+
+      {/* Image processing snackbar */}
+      <Snackbar
+        open={processingSnack.open}
+        autoHideDuration={processingSnack.severity === 'info' ? null : 6000}
+        onClose={() => setProcessingSnack((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setProcessingSnack((prev) => ({ ...prev, open: false }))}
+          severity={processingSnack.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {processingSnack.message}
+        </Alert>
+      </Snackbar>
 
     </Box>
   )
