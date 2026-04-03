@@ -1498,15 +1498,15 @@ export default function App() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
 
-      {/* Image processing snackbars (one per job, stacked) */}
+      {/* Image processing snackbars (one per job, stacked above modals) */}
       {processingJobs.map((job, index) => (
         <Snackbar
           key={job.id}
           open
           autoHideDuration={job.status !== 'processing' ? 6000 : null}
           onClose={() => setProcessingJobs((prev) => prev.filter((j) => j.id !== job.id))}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-          sx={{ bottom: { xs: `${24 + index * 60}px !important` } }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          sx={{ zIndex: 1500, bottom: { xs: `${24 + index * 60}px !important` } }}
         >
           <Alert
             severity={job.status === 'completed' ? 'success' : job.status === 'failed' ? 'error' : 'info'}
