@@ -529,10 +529,11 @@ export default function App() {
       await apiUpdateImage(selectedImage.id, { metadata_extra: updatedMeta })
       setLockEngaged(true)
       await loadCategories()
+      loadUncategorizedImages()
     } catch (err) {
       console.error('Failed to lock overlays', err)
     }
-  }, [selectedImage, loadCategories])
+  }, [selectedImage, loadCategories, loadUncategorizedImages])
 
   // Unlock: only disengage the lock UI (re-enable clear button).
   // Does NOT remove persisted overlays from metadata.
@@ -554,10 +555,11 @@ export default function App() {
         metadata_extra: updatedMeta as Record<string, unknown> | undefined,
       })
       await loadCategories()
+      loadUncategorizedImages()
     } catch (err) {
       console.error('Failed to clear locked overlays', err)
     }
-  }, [selectedImage, loadCategories])
+  }, [selectedImage, loadCategories, loadUncategorizedImages])
 
   const copyShareLink = useCallback(() => {
     const url = window.location.href
