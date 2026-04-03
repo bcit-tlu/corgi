@@ -67,6 +67,7 @@ import {
   createProgram,
   updateProgram,
   deleteProgram,
+  reorderCategories as apiReorderCategories,
 } from './api'
 import type { ApiCategoryTree, ApiImage, ApiUser } from './api'
 import MoveCategoryDialog from './components/MoveCategoryDialog'
@@ -762,6 +763,18 @@ export default function App() {
     [loadCategories],
   )
 
+  const reorderCategoriesInline = useCallback(
+    async (items: Array<{ id: number; parent_id: number | null; sort_order: number }>) => {
+      try {
+        await apiReorderCategories(items)
+        await loadCategories()
+      } catch (err) {
+        console.error('Failed to reorder categories', err)
+      }
+    },
+    [loadCategories],
+  )
+
   const handleMoveCategory = useCallback(
     async (categoryId: number, newParentId: number | null) => {
       try {
@@ -1440,6 +1453,7 @@ export default function App() {
         onDeleteCategory={deleteCategoryInline}
         onEditCategory={editCategoryInline}
         onToggleVisibility={toggleCategoryVisibility}
+        onReorderCategories={reorderCategoriesInline}
       />
 
       {/* Move category dialog */}
