@@ -454,12 +454,15 @@ export default function ImageViewer({
     const updateLockIcon = () => {
       if (!lockButton) return
       const locked = overlaysLockedRef.current
-      const img = lockButton.element.querySelector('img') as HTMLImageElement | null
-      if (img) {
-        img.src = locked
-          ? prefix + 'lock_closed_rest.svg'
-          : prefix + 'lock_open_rest.svg'
-      }
+      const state = locked ? 'lock_closed' : 'lock_open'
+      // Update all four OSD button image states (REST, HOVER, GROUP, DOWN)
+      const imgs = lockButton.element.querySelectorAll('img')
+      const suffixes = ['rest', 'hover', 'grouphover', 'pressed']
+      imgs.forEach((img, i) => {
+        if (i < suffixes.length) {
+          img.src = prefix + state + '_' + suffixes[i] + '.svg'
+        }
+      })
       lockButton.element.title = locked
         ? 'Unlock overlays (remove from image metadata)'
         : 'Lock overlays (persist to image metadata)'

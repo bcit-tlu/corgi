@@ -542,9 +542,10 @@ export default function App() {
 
   // Clear overlays: also remove from metadata if they were persisted.
   // Refreshes category tree; does NOT call setSelectedImage.
+  // No hasLockedOverlays guard — selectedImage may be stale after a lock
+  // in the same session (we intentionally skip setSelectedImage on lock).
   const handleClearOverlays = useCallback(async () => {
     if (!selectedImage) return
-    if (!hasLockedOverlays) return
     try {
       const meta = { ...(selectedImage.metadataExtra ?? {}) } as Record<string, unknown>
       delete meta.locked_overlays
@@ -556,7 +557,7 @@ export default function App() {
     } catch (err) {
       console.error('Failed to clear locked overlays', err)
     }
-  }, [selectedImage, hasLockedOverlays, loadCategories])
+  }, [selectedImage, loadCategories])
 
   const copyShareLink = useCallback(() => {
     const url = window.location.href
