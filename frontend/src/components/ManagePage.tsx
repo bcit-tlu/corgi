@@ -159,7 +159,7 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
   const [showFilters, setShowFilters] = useState(false)
 
   // Pagination state
-  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [rowsPerPage, setRowsPerPage] = useState(25)
   const [currentPage, setCurrentPage] = useState(0)
 
   // Action menu state
