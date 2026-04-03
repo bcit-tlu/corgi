@@ -446,12 +446,12 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
     handleMenuClose()
   }
 
-  const handleMenuDelete = async () => {
-    if (menuImage) {
-      await handleDeleteImage(menuImage)
-      onCategoriesChanged?.()
-    }
+  const handleMenuDelete = () => {
+    const image = menuImage
     handleMenuClose()
+    if (image) {
+      handleDeleteImage(image).then(() => onCategoriesChanged?.())
+    }
   }
 
   if (loading) {
