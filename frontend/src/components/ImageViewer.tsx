@@ -32,6 +32,7 @@ export default function ImageViewer({
   const onViewportChangeRef = useRef(onViewportChange)
   const selectionModeRef = useRef(false)
   const dragRef = useRef<DragState | null>(null)
+  const overlaysRef = useRef<HTMLDivElement[]>([])
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange
   }, [onViewportChange])
@@ -160,6 +161,7 @@ export default function ImageViewer({
           overlayElement,
           new OpenSeadragon.Rect(viewportPos.x, viewportPos.y, 0, 0),
         )
+        overlaysRef.current.push(overlayElement)
         dragRef.current = { overlayElement, startPos: viewportPos }
       },
       dragHandler: (event: OpenSeadragon.MouseTrackerEvent) => {
@@ -184,6 +186,24 @@ export default function ImageViewer({
       },
     })
 
+    // --- Clear overlays toolbar button ---
+    const clearButton = new OpenSeadragon.Button({
+      tooltip: 'Clear all selection rectangles',
+      srcRest: prefix + 'clear_rest.svg',
+      srcGroup: prefix + 'clear_grouphover.svg',
+      srcHover: prefix + 'clear_hover.svg',
+      srcDown: prefix + 'clear_pressed.svg',
+      onClick: () => {
+        for (const el of overlaysRef.current) {
+          viewer.removeOverlay(el)
+        }
+        overlaysRef.current = []
+      },
+    })
+    viewer.addControl(clearButton.element, {
+      anchor: OpenSeadragon.ControlAnchor.BOTTOM_LEFT,
+    })
+
     // Restore viewport state after the image has loaded
     if (initialViewport) {
       viewer.addOnceHandler('open', () => {
@@ -204,6 +224,7 @@ export default function ImageViewer({
     return () => {
       selectionModeRef.current = false
       dragRef.current = null
+      overlaysRef.current = []
       selectionTracker.destroy()
       viewer.destroy()
       viewerRef.current = null
