@@ -34,7 +34,7 @@ import HomeIcon from '@mui/icons-material/Home'
 import LinkIcon from '@mui/icons-material/Link'
 import SearchIcon from '@mui/icons-material/Search'
 import ImageViewer from './components/ImageViewer'
-import type { ViewportState } from './components/ImageViewer'
+import type { ViewportState, MeasurementConfig } from './components/ImageViewer'
 import CategoryTile from './components/CategoryTile'
 import ImageTile from './components/ImageTile'
 import ManageCategoriesDialog from './components/ManageCategoriesDialog'
@@ -119,6 +119,7 @@ function apiTreeToCategory(node: ApiCategoryTree): Category {
       active: img.active,
       createdAt: img.created_at,
       updatedAt: img.updated_at,
+      metadataExtra: img.metadata_extra,
     })),
     program: node.program,
     status: node.status,
@@ -306,6 +307,7 @@ export default function App() {
           active: img.active,
           createdAt: img.created_at,
           updatedAt: img.updated_at,
+          metadataExtra: img.metadata_extra,
         })),
       )
       uncategorizedLoaded.current = true
@@ -445,6 +447,16 @@ export default function App() {
 
   // Memoize initialViewport so it stays referentially stable per image
   const initialViewport = useMemo(() => viewportState, [selectedImage]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Build measurement config from the selected image's metadata
+  const selectedImageMeasurement = useMemo((): MeasurementConfig | undefined => {
+    const meta = selectedImage?.metadataExtra
+    if (!meta) return undefined
+    const scale = typeof meta.measurement_scale === 'number' ? meta.measurement_scale : undefined
+    const unit = typeof meta.measurement_unit === 'string' ? meta.measurement_unit : undefined
+    if (!scale && !unit) return undefined
+    return { scale, unit }
+  }, [selectedImage])
 
   const copyShareLink = useCallback(() => {
     const url = window.location.href
@@ -612,7 +624,7 @@ export default function App() {
         note: selectedImage.note ?? null,
         program_ids: selectedImage.programIds,
         active: selectedImage.active,
-        metadata_extra: null,
+        metadata_extra: selectedImage.metadataExtra ?? null,
         created_at: selectedImage.createdAt ?? '',
         updated_at: selectedImage.updatedAt ?? '',
       }
@@ -630,7 +642,7 @@ export default function App() {
         note: browseEditImage.note ?? null,
         program_ids: browseEditImage.programIds,
         active: browseEditImage.active,
-        metadata_extra: null,
+        metadata_extra: browseEditImage.metadataExtra ?? null,
         created_at: browseEditImage.createdAt ?? '',
         updated_at: browseEditImage.updatedAt ?? '',
       }
@@ -668,6 +680,7 @@ export default function App() {
           active: updated.active,
           createdAt: updated.created_at,
           updatedAt: updated.updated_at,
+          metadataExtra: updated.metadata_extra,
         })
         setImageEditOpen(false)
         // Refresh categories and update breadcrumb path from the fresh tree
@@ -889,6 +902,7 @@ export default function App() {
                   active: img.active,
                   createdAt: img.created_at,
                   updatedAt: img.updated_at,
+                  metadataExtra: img.metadata_extra,
                 })
                 // Build breadcrumb path from the image's category
                 if (img.category_id != null) {
@@ -991,6 +1005,7 @@ export default function App() {
                   tileSources={selectedImage.tileSources}
                   initialViewport={initialViewport}
                   onViewportChange={handleViewportChange}
+                  measurement={selectedImageMeasurement}
                 />
               </Paper>
 

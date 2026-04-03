@@ -9,16 +9,62 @@ export interface ViewportState {
   rotation?: number
 }
 
+export interface MeasurementConfig {
+  /** Number of image pixels per one real-world unit (e.g. pixels per mm) */
+  scale?: number
+  /** Unit label (e.g. "mm", "um", "cm") */
+  unit?: string
+}
+
 interface ImageViewerProps {
   tileSources: OpenSeadragon.TileSourceOptions | string
   height?: string
   initialViewport?: ViewportState
   onViewportChange?: (state: ViewportState) => void
+  measurement?: MeasurementConfig
 }
 
 interface DragState {
   overlayElement: HTMLDivElement
   startPos: OpenSeadragon.Point
+  widthLabel: HTMLDivElement
+  heightLabel: HTMLDivElement
+}
+
+/** Format a measurement value with appropriate precision */
+function formatMeasurement(
+  viewportDim: number,
+  imageSize: number,
+  config: MeasurementConfig | undefined,
+): string {
+  // Convert viewport units to image pixels.
+  // In OSD, viewport width=1 corresponds to the full image width in pixels.
+  const pixels = viewportDim * imageSize
+  if (config?.scale && config.scale > 0) {
+    const realValue = pixels / config.scale
+    const unit = config.unit ?? ''
+    if (realValue >= 100) return `${realValue.toFixed(0)} ${unit}`
+    if (realValue >= 1) return `${realValue.toFixed(1)} ${unit}`
+    return `${realValue.toFixed(2)} ${unit}`
+  }
+  return `${Math.round(pixels)} px`
+}
+
+/** Create a styled label element for measurement display */
+function createMeasurementLabel(): HTMLDivElement {
+  const label = document.createElement('div')
+  label.style.position = 'absolute'
+  label.style.color = '#ff0000'
+  label.style.fontSize = '12px'
+  label.style.fontFamily = 'monospace'
+  label.style.fontWeight = '600'
+  label.style.whiteSpace = 'nowrap'
+  label.style.pointerEvents = 'none'
+  label.style.textShadow =
+    '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff'
+  label.style.zIndex = '10'
+  label.style.display = 'none'
+  return label
 }
 
 export default function ImageViewer({
@@ -26,6 +72,7 @@ export default function ImageViewer({
   height = '70vh',
   initialViewport,
   onViewportChange,
+  measurement,
 }: ImageViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<OpenSeadragon.Viewer | null>(null)
@@ -33,9 +80,13 @@ export default function ImageViewer({
   const selectionModeRef = useRef(false)
   const dragRef = useRef<DragState | null>(null)
   const overlaysRef = useRef<HTMLDivElement[]>([])
+  const measurementRef = useRef(measurement)
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange
   }, [onViewportChange])
+  useEffect(() => {
+    measurementRef.current = measurement
+  }, [measurement])
 
   const emitViewport = useCallback(() => {
     const viewer = viewerRef.current
@@ -45,6 +96,60 @@ export default function ImageViewer({
     const rotation = viewer.viewport.getRotation()
     onViewportChangeRef.current?.({ zoom, x: center.x, y: center.y, rotation })
   }, [])
+
+  /** Get the content size of the tiled image */
+  const getContentSize = useCallback((): OpenSeadragon.Point => {
+    const viewer = viewerRef.current
+    if (!viewer) return new OpenSeadragon.Point(1, 1)
+    const tiledImage = viewer.world.getItemAt(0)
+    if (!tiledImage) return new OpenSeadragon.Point(1, 1)
+    return tiledImage.getContentSize()
+  }, [])
+
+  /**
+   * Position the width label centered along the bottom edge of the rectangle,
+   * and the height label centered along the right edge.
+   */
+  const updateMeasurementLabels = useCallback(
+    (
+      rect: OpenSeadragon.Rect,
+      widthLabel: HTMLDivElement,
+      heightLabel: HTMLDivElement,
+    ) => {
+      const viewer = viewerRef.current
+      if (!viewer?.viewport) return
+
+      const size = getContentSize()
+
+      const wText = formatMeasurement(rect.width, size.x, measurementRef.current)
+      const hText = formatMeasurement(rect.height, size.y, measurementRef.current)
+      widthLabel.textContent = wText
+      heightLabel.textContent = hText
+
+      // Convert viewport rect corners to web (pixel) coordinates
+      const topLeft = viewer.viewport.pixelFromPoint(
+        new OpenSeadragon.Point(rect.x, rect.y),
+      )
+      const bottomRight = viewer.viewport.pixelFromPoint(
+        new OpenSeadragon.Point(rect.x + rect.width, rect.y + rect.height),
+      )
+
+      // Width label: centered below the bottom edge
+      const wMidX = (topLeft.x + bottomRight.x) / 2
+      widthLabel.style.left = `${wMidX}px`
+      widthLabel.style.top = `${bottomRight.y + 4}px`
+      widthLabel.style.transform = 'translateX(-50%)'
+      widthLabel.style.display = 'block'
+
+      // Height label: centered to the right of the right edge
+      const hMidY = (topLeft.y + bottomRight.y) / 2
+      heightLabel.style.left = `${bottomRight.x + 4}px`
+      heightLabel.style.top = `${hMidY}px`
+      heightLabel.style.transform = 'translateY(-50%)'
+      heightLabel.style.display = 'block'
+    },
+    [getContentSize],
+  )
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -128,6 +233,25 @@ export default function ImageViewer({
 
     const viewer = viewerRef.current
 
+    // --- Measurement label container (lives inside the OSD canvas) ---
+    const labelContainer = document.createElement('div')
+    labelContainer.style.position = 'absolute'
+    labelContainer.style.top = '0'
+    labelContainer.style.left = '0'
+    labelContainer.style.width = '100%'
+    labelContainer.style.height = '100%'
+    labelContainer.style.pointerEvents = 'none'
+    labelContainer.style.overflow = 'visible'
+    labelContainer.style.zIndex = '10'
+    viewer.canvas.appendChild(labelContainer)
+
+    // Track all label pairs so we can reposition them on zoom/pan
+    const labelPairs: Array<{
+      rect: OpenSeadragon.Rect
+      widthLabel: HTMLDivElement
+      heightLabel: HTMLDivElement
+    }> = []
+
     // --- Selection rectangle toolbar button ---
     const prefix = '/openseadragon-svg-icons/'
     const selectionButton = new OpenSeadragon.Button({
@@ -149,6 +273,8 @@ export default function ImageViewer({
     })
 
     // --- Mouse tracker for drawing selection rectangles ---
+    let currentRect: OpenSeadragon.Rect | null = null
+
     const selectionTracker = new OpenSeadragon.MouseTracker({
       element: viewer.element,
       pressHandler: (event: OpenSeadragon.MouseTrackerEvent) => {
@@ -162,7 +288,15 @@ export default function ImageViewer({
           new OpenSeadragon.Rect(viewportPos.x, viewportPos.y, 0, 0),
         )
         overlaysRef.current.push(overlayElement)
-        dragRef.current = { overlayElement, startPos: viewportPos }
+
+        // Create measurement labels
+        const widthLabel = createMeasurementLabel()
+        const heightLabel = createMeasurementLabel()
+        labelContainer.appendChild(widthLabel)
+        labelContainer.appendChild(heightLabel)
+
+        dragRef.current = { overlayElement, startPos: viewportPos, widthLabel, heightLabel }
+        currentRect = new OpenSeadragon.Rect(viewportPos.x, viewportPos.y, 0, 0)
       },
       dragHandler: (event: OpenSeadragon.MouseTrackerEvent) => {
         if (!dragRef.current || !event.position) return
@@ -176,15 +310,53 @@ export default function ImageViewer({
           Math.abs(diffY),
         )
         viewer.updateOverlay(dragRef.current.overlayElement, location)
+        currentRect = location
+
+        // Update measurement labels during drag
+        updateMeasurementLabels(
+          location,
+          dragRef.current.widthLabel,
+          dragRef.current.heightLabel,
+        )
       },
       releaseHandler: () => {
         if (!dragRef.current) return
+        // Store the final rect and labels for repositioning on zoom/pan
+        if (currentRect && currentRect.width > 0 && currentRect.height > 0) {
+          labelPairs.push({
+            rect: currentRect,
+            widthLabel: dragRef.current.widthLabel,
+            heightLabel: dragRef.current.heightLabel,
+          })
+        } else {
+          // Remove labels if the rectangle is too small (click without drag)
+          dragRef.current.widthLabel.remove()
+          dragRef.current.heightLabel.remove()
+        }
         dragRef.current = null
+        currentRect = null
         selectionModeRef.current = false
         viewer.setMouseNavEnabled(true)
         selectionButton.element.style.outline = 'none'
       },
     })
+
+    // Reposition measurement labels when the viewport changes (zoom/pan)
+    const repositionLabels = () => {
+      for (const pair of labelPairs) {
+        updateMeasurementLabels(pair.rect, pair.widthLabel, pair.heightLabel)
+      }
+      // Also reposition labels for the rectangle currently being drawn
+      if (dragRef.current && currentRect) {
+        updateMeasurementLabels(
+          currentRect,
+          dragRef.current.widthLabel,
+          dragRef.current.heightLabel,
+        )
+      }
+    }
+    viewer.addHandler('animation', repositionLabels)
+    viewer.addHandler('animation-finish', repositionLabels)
 
     // --- Clear overlays toolbar button ---
     const clearButton = new OpenSeadragon.Button({
@@ -198,6 +370,12 @@ export default function ImageViewer({
           viewer.removeOverlay(el)
         }
         overlaysRef.current = []
+        // Also remove all measurement labels
+        for (const pair of labelPairs) {
+          pair.widthLabel.remove()
+          pair.heightLabel.remove()
+        }
+        labelPairs.length = 0
       },
     })
     viewer.addControl(clearButton.element, {
@@ -225,11 +403,12 @@ export default function ImageViewer({
       selectionModeRef.current = false
       dragRef.current = null
       overlaysRef.current = []
+      labelPairs.length = 0
       selectionTracker.destroy()
       viewer.destroy()
       viewerRef.current = null
     }
-  }, [tileSources, initialViewport, emitViewport])
+  }, [tileSources, initialViewport, emitViewport, updateMeasurementLabels])
 
   return (
     <Box
