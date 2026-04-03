@@ -7,6 +7,7 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import CircularProgress from '@mui/material/CircularProgress'
 import Container from '@mui/material/Container'
+import LinearProgress from '@mui/material/LinearProgress'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
@@ -159,8 +160,9 @@ export default function App() {
   // Report issue modal state
   const [reportIssueOpen, setReportIssueOpen] = useState(false)
 
-  // Background image processing state
+  // Image processing tracking state
   const [bgProcessingId, setBgProcessingId] = useState<number | null>(null)
+  const [bgProcessingFilename, setBgProcessingFilename] = useState<string>('')
   const bgPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [processingSnack, setProcessingSnack] = useState<{
     open: boolean
@@ -219,16 +221,9 @@ export default function App() {
       }
     : null
 
-  // Background polling for image processing (when user dismisses modal during processing)
+  // Poll for image processing status and auto-refresh when done
   useEffect(() => {
     if (bgProcessingId === null) return
-
-    // Show an info snackbar so user knows processing continues
-    setProcessingSnack({
-      open: true,
-      message: 'Image processing continues in the background…',
-      severity: 'info',
-    })
 
     const poll = async () => {
       try {
@@ -920,6 +915,34 @@ export default function App() {
         </Toolbar>
       </AppBar>
 
+      {/* Image processing indicator (non-blocking bar below app bar) */}
+      {bgProcessingId !== null && (
+        <Box sx={{ width: '100%', position: 'relative' }}>
+          <LinearProgress
+            sx={{
+              height: 3,
+              '& .MuiLinearProgress-bar': { animationDuration: '1.5s' },
+            }}
+          />
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 2,
+              py: 0.5,
+              bgcolor: 'info.main',
+              color: 'info.contrastText',
+            }}
+          >
+            <CircularProgress size={14} sx={{ color: 'inherit' }} />
+            <Typography variant="caption">
+              Processing {bgProcessingFilename || 'image'}…
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
       {/* Announcement banner */}
       {announcement && <AnnouncementBanner message={announcement} />}
 
@@ -1340,8 +1363,9 @@ export default function App() {
           loadCategories()
           loadUncategorizedImages()
         }}
-        onProcessingDismissed={(sourceImageId) => {
+        onProcessingStarted={(sourceImageId, filename) => {
           setBgProcessingId(sourceImageId)
+          setBgProcessingFilename(filename)
         }}
         categoryId={path.length > 0 ? path[path.length - 1].id : null}
         categories={categories}
