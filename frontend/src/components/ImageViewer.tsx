@@ -301,8 +301,17 @@ export default function ImageViewer({
       dragHandler: (event: OpenSeadragon.MouseTrackerEvent) => {
         if (!dragRef.current || !event.position) return
         const viewportPos = viewer.viewport.pointFromPixel(event.position)
-        const diffX = viewportPos.x - dragRef.current.startPos.x
-        const diffY = viewportPos.y - dragRef.current.startPos.y
+        let diffX = viewportPos.x - dragRef.current.startPos.x
+        let diffY = viewportPos.y - dragRef.current.startPos.y
+
+        // Hold Shift to constrain the rectangle to a square
+        const origEvent = event.originalEvent as MouseEvent | undefined
+        if (origEvent?.shiftKey) {
+          const maxDim = Math.max(Math.abs(diffX), Math.abs(diffY))
+          diffX = Math.sign(diffX) * maxDim
+          diffY = Math.sign(diffY) * maxDim
+        }
+
         const location = new OpenSeadragon.Rect(
           Math.min(dragRef.current.startPos.x, dragRef.current.startPos.x + diffX),
           Math.min(dragRef.current.startPos.y, dragRef.current.startPos.y + diffY),
