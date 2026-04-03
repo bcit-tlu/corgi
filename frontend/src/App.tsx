@@ -1553,6 +1553,7 @@ export default function App() {
         onClose={() => setSnackOpen(false)}
         message="Link copied to clipboard"
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        sx={{ bottom: { xs: `${24 + processingJobs.length * 60}px !important` } }}
       />
 
       {/* Image processing snackbars (one per job, stacked above modals) */}
