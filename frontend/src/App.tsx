@@ -1364,7 +1364,7 @@ export default function App() {
         }}
         onProcessingStarted={(sourceImageId, filename) => {
           setProcessingJobs((prev) => {
-            if (prev.length >= MAX_PROCESSING_JOBS) return prev
+            if (prev.filter((j) => j.status === 'processing').length >= MAX_PROCESSING_JOBS) return prev
             if (prev.some((j) => j.id === sourceImageId)) return prev
             return [...prev, { id: sourceImageId, filename, status: 'processing' as const }]
           })
