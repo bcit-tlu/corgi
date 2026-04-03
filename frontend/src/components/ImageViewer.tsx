@@ -16,12 +16,24 @@ export interface MeasurementConfig {
   unit?: string
 }
 
+/** Serialisable representation of an overlay rectangle in viewport coordinates */
+export interface OverlayRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 interface ImageViewerProps {
   tileSources: OpenSeadragon.TileSourceOptions | string
   height?: string
   initialViewport?: ViewportState
   onViewportChange?: (state: ViewportState) => void
   measurement?: MeasurementConfig
+  /** Overlay rectangles to restore (e.g. from a share link) */
+  initialOverlays?: OverlayRect[]
+  /** Called whenever the set of overlay rectangles changes */
+  onOverlaysChange?: (overlays: OverlayRect[]) => void
 }
 
 interface DragState {
@@ -73,10 +85,13 @@ export default function ImageViewer({
   initialViewport,
   onViewportChange,
   measurement,
+  initialOverlays,
+  onOverlaysChange,
 }: ImageViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<OpenSeadragon.Viewer | null>(null)
   const onViewportChangeRef = useRef(onViewportChange)
+  const onOverlaysChangeRef = useRef(onOverlaysChange)
   const selectionModeRef = useRef(false)
   const dragRef = useRef<DragState | null>(null)
   const overlaysRef = useRef<HTMLDivElement[]>([])
@@ -84,6 +99,9 @@ export default function ImageViewer({
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange
   }, [onViewportChange])
+  useEffect(() => {
+    onOverlaysChangeRef.current = onOverlaysChange
+  }, [onOverlaysChange])
   useEffect(() => {
     measurementRef.current = measurement
   }, [measurement])
@@ -252,6 +270,33 @@ export default function ImageViewer({
       heightLabel: HTMLDivElement
     }> = []
 
+    /** Notify the parent about the current set of overlay rects (max 5) */
+    const emitOverlays = () => {
+      const rects: OverlayRect[] = labelPairs.slice(0, 5).map((p) => ({
+        x: p.rect.x,
+        y: p.rect.y,
+        w: p.rect.width,
+        h: p.rect.height,
+      }))
+      onOverlaysChangeRef.current?.(rects)
+    }
+
+    /** Add an overlay rectangle with measurement labels programmatically */
+    const addOverlayRect = (r: OverlayRect) => {
+      const el = document.createElement('div')
+      el.style.border = '2px solid red'
+      el.style.boxSizing = 'border-box'
+      const rect = new OpenSeadragon.Rect(r.x, r.y, r.w, r.h)
+      viewer.addOverlay(el, rect)
+      overlaysRef.current.push(el)
+      const wl = createMeasurementLabel()
+      const hl = createMeasurementLabel()
+      labelContainer.appendChild(wl)
+      labelContainer.appendChild(hl)
+      labelPairs.push({ rect, widthLabel: wl, heightLabel: hl })
+      updateMeasurementLabels(rect, wl, hl)
+    }
+
     // --- Selection rectangle toolbar button ---
     const prefix = '/openseadragon-svg-icons/'
     const selectionButton = new OpenSeadragon.Button({
@@ -337,6 +382,7 @@ export default function ImageViewer({
             widthLabel: dragRef.current.widthLabel,
             heightLabel: dragRef.current.heightLabel,
           })
+          emitOverlays()
         } else {
           // Remove labels if the rectangle is too small (click without drag)
           dragRef.current.widthLabel.remove()
@@ -385,15 +431,16 @@ export default function ImageViewer({
           pair.heightLabel.remove()
         }
         labelPairs.length = 0
+        emitOverlays()
       },
     })
     viewer.addControl(clearButton.element, {
       anchor: OpenSeadragon.ControlAnchor.BOTTOM_LEFT,
     })
 
-    // Restore viewport state after the image has loaded
-    if (initialViewport) {
-      viewer.addOnceHandler('open', () => {
+    // Restore viewport state and initial overlays after the image has loaded
+    viewer.addOnceHandler('open', () => {
+      if (initialViewport) {
         viewer.viewport.zoomTo(initialViewport.zoom, undefined, true)
         viewer.viewport.panTo(
           new OpenSeadragon.Point(initialViewport.x, initialViewport.y),
@@ -402,8 +449,14 @@ export default function ImageViewer({
         if (initialViewport.rotation) {
           viewer.viewport.setRotation(initialViewport.rotation, true)
         }
-      })
-    }
+      }
+      // Restore overlay rectangles from share link
+      if (initialOverlays?.length) {
+        for (const r of initialOverlays.slice(0, 5)) {
+          addOverlayRect(r)
+        }
+      }
+    })
 
     // Report viewport changes after animations finish
     viewer.addHandler('animation-finish', emitViewport)
@@ -417,7 +470,7 @@ export default function ImageViewer({
       viewer.destroy()
       viewerRef.current = null
     }
-  }, [tileSources, initialViewport, emitViewport, updateMeasurementLabels])
+  }, [tileSources, initialViewport, initialOverlays, emitViewport, updateMeasurementLabels])
 
   return (
     <Box
