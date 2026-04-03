@@ -825,6 +825,11 @@ export default function ManagePage({ categories, onViewImage, onNavigateCategory
           await handleSaveImage(data)
           onCategoriesChanged?.()
         }}
+        onDelete={editingImage ? async () => {
+          await handleDeleteImage(editingImage)
+          setEditOpen(false)
+          setEditingImage(null)
+        } : undefined}
         image={editingImage}
         categories={categories}
         programs={programs}
