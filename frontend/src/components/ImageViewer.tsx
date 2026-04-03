@@ -122,7 +122,7 @@ export default function ImageViewer({
       const size = getContentSize()
 
       const wText = formatMeasurement(rect.width, size.x, measurementRef.current)
-      const hText = formatMeasurement(rect.height, size.y, measurementRef.current)
+      const hText = formatMeasurement(rect.height, size.x, measurementRef.current)
       widthLabel.textContent = wText
       heightLabel.textContent = hText
 
