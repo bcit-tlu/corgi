@@ -1552,7 +1552,7 @@ export default function App() {
         autoHideDuration={3000}
         onClose={() => setSnackOpen(false)}
         message="Link copied to clipboard"
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       />
 
       {/* Image processing snackbars (one per job, stacked above modals) */}
