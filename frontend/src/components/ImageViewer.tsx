@@ -457,7 +457,8 @@ export default function ImageViewer({
       const state = locked ? 'lock_closed' : 'lock_open'
       // Update all four OSD button image states (REST, HOVER, GROUP, DOWN)
       const imgs = lockButton.element.querySelectorAll('img')
-      const suffixes = ['rest', 'hover', 'grouphover', 'pressed']
+      // OSD Button appends imgs as: imgRest, imgGroup, imgHover, imgDown
+      const suffixes = ['rest', 'grouphover', 'hover', 'pressed']
       imgs.forEach((img, i) => {
         if (i < suffixes.length) {
           img.src = prefix + state + '_' + suffixes[i] + '.svg'
