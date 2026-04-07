@@ -1,5 +1,6 @@
 """JWT authentication and RBAC utilities."""
 
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
@@ -13,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .database import Settings, get_db
 from .models import User
+
+logger = logging.getLogger(__name__)
 
 
 class AuthSettings(Settings):
@@ -29,6 +32,13 @@ auth_settings = AuthSettings()
 # precedence for production deployments that need stable tokens.
 if not auth_settings.jwt_secret:
     auth_settings.jwt_secret = secrets.token_urlsafe(32)
+    logger.warning(
+        "No JWT_SECRET configured — using an ephemeral random secret. "
+        "Sessions will not survive restarts and tokens will not be valid "
+        "across multiple replicas. Set the JWT_SECRET environment variable "
+        "for production deployments.",
+        extra={"event": "auth.jwt_secret_missing"},
+    )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
