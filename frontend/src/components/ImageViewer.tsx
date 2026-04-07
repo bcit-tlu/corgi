@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import OpenSeadragon from 'openseadragon'
 import Box from '@mui/material/Box'
+import { theme } from '../theme'
 
 export interface ViewportState {
   zoom: number
@@ -344,8 +345,8 @@ export default function ImageViewer({
       onClick: () => {
         selectionModeRef.current = !selectionModeRef.current
         viewer.setMouseNavEnabled(!selectionModeRef.current)
-        selectionButton.element.style.outline = selectionModeRef.current
-          ? '2px solid #fd0000'
+        selectionButton.element.style.boxShadow = selectionModeRef.current
+          ? `inset 0 0 0 2px ${theme.palette.primary.main}`
           : 'none'
       },
     })
@@ -428,7 +429,7 @@ export default function ImageViewer({
         currentRect = null
         selectionModeRef.current = false
         viewer.setMouseNavEnabled(true)
-        selectionButton.element.style.outline = 'none'
+        selectionButton.element.style.boxShadow = 'none'
       },
     })
 
@@ -467,7 +468,7 @@ export default function ImageViewer({
       lockButton.element.title = locked
         ? 'Unlock overlays (re-enable clear button)'
         : 'Lock overlays (persist to image metadata)'
-      lockButton.element.style.outline = locked ? '2px solid #fd0000' : 'none'
+      lockButton.element.style.boxShadow = locked ? `inset 0 0 0 2px ${theme.palette.primary.main}` : 'none'
     }
     if (canEditContentRef.current) {
       lockButton = new OpenSeadragon.Button({
