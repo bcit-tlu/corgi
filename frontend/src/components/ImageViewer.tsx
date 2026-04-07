@@ -16,6 +16,9 @@ export interface MeasurementConfig {
   unit?: string
 }
 
+/** Maximum number of overlay rectangles included in share-view links */
+export const MAX_SHARE_OVERLAYS = 15
+
 /** Serialisable representation of an overlay rectangle in viewport coordinates */
 export interface OverlayRect {
   x: number
@@ -306,9 +309,9 @@ export default function ImageViewer({
       heightLabel: HTMLDivElement
     }> = []
 
-    /** Notify the parent about the current set of overlay rects (max 5) */
+    /** Notify the parent about the current set of overlay rects (max MAX_SHARE_OVERLAYS) */
     const emitOverlays = () => {
-      const rects: OverlayRect[] = labelPairs.slice(0, 5).map((p) => ({
+      const rects: OverlayRect[] = labelPairs.slice(0, MAX_SHARE_OVERLAYS).map((p) => ({
         x: p.rect.x,
         y: p.rect.y,
         w: p.rect.width,
@@ -489,7 +492,7 @@ export default function ImageViewer({
             onUnlockOverlaysRef.current?.()
           } else {
             // Lock: persist current overlays
-            const rects: OverlayRect[] = labelPairs.slice(0, 5).map((p) => ({
+            const rects: OverlayRect[] = labelPairs.slice(0, MAX_SHARE_OVERLAYS).map((p) => ({
               x: p.rect.x,
               y: p.rect.y,
               w: p.rect.width,
@@ -563,7 +566,7 @@ export default function ImageViewer({
       }
       // Restore overlay rectangles from share link
       if (initialOverlays?.length) {
-        for (const r of initialOverlays.slice(0, 5)) {
+        for (const r of initialOverlays.slice(0, MAX_SHARE_OVERLAYS)) {
           addOverlayRect(r)
         }
       }
