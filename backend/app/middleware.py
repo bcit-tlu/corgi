@@ -74,8 +74,13 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 else (request.client.host if request.client else "unknown")
             )
 
-            # Browser tab fingerprint (set by frontend)
-            session_id = request.headers.get("X-Session-ID") or ""
+            # Browser tab fingerprint (set by frontend) — validate like X-Request-ID
+            raw_session_id = request.headers.get("X-Session-ID") or ""
+            session_id = (
+                raw_session_id
+                if raw_session_id and len(raw_session_id) <= 128 and raw_session_id.replace("-", "").isalnum()
+                else ""
+            )
 
             # Extract user identity from JWT (no DB hit)
             user_id: int | None = None
