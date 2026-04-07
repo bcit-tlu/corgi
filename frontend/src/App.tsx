@@ -347,7 +347,7 @@ export default function App() {
             }
           }
         }
-        // Parse overlay rectangles (ov0..ov9) — format: x,y,w,h
+        // Parse overlay rectangles (ov0..ov14) — format: x,y,w,h
         const parsedOverlays: OverlayRect[] = []
         for (let i = 0; i < MAX_SHARE_OVERLAYS; i++) {
           const ov = params.get(`ov${i}`)

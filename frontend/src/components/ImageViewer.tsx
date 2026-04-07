@@ -17,7 +17,7 @@ export interface MeasurementConfig {
 }
 
 /** Maximum number of overlay rectangles included in share-view links */
-export const MAX_SHARE_OVERLAYS = 10
+export const MAX_SHARE_OVERLAYS = 15
 
 /** Serialisable representation of an overlay rectangle in viewport coordinates */
 export interface OverlayRect {
