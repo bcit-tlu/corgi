@@ -35,6 +35,7 @@ import LinkIcon from '@mui/icons-material/Link'
 import SearchIcon from '@mui/icons-material/Search'
 import ImageViewer from './components/ImageViewer'
 import type { ViewportState, MeasurementConfig, OverlayRect } from './components/ImageViewer'
+import { MAX_SHARE_OVERLAYS } from './components/ImageViewer'
 import CategoryTile from './components/CategoryTile'
 import ImageTile from './components/ImageTile'
 import ManageCategoriesDialog from './components/ManageCategoriesDialog'
@@ -346,9 +347,9 @@ export default function App() {
             }
           }
         }
-        // Parse overlay rectangles (ov0..ov4) — format: x,y,w,h
+        // Parse overlay rectangles (ov0..ov9) — format: x,y,w,h
         const parsedOverlays: OverlayRect[] = []
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < MAX_SHARE_OVERLAYS; i++) {
           const ov = params.get(`ov${i}`)
           if (!ov) continue
           const parts = ov.split(',').map(Number)
@@ -553,8 +554,8 @@ export default function App() {
           params.set('rotation', viewportState.rotation.toFixed(1))
         }
       }
-      // Serialize overlay rectangles (up to 5)
-      for (let i = 0; i < Math.min(overlays.length, 5); i++) {
+      // Serialize overlay rectangles (up to MAX_SHARE_OVERLAYS)
+      for (let i = 0; i < Math.min(overlays.length, MAX_SHARE_OVERLAYS); i++) {
         const r = overlays[i]
         params.set(`ov${i}`, [r.x, r.y, r.w, r.h].map((n) => n.toPrecision(8)).join(','))
       }
