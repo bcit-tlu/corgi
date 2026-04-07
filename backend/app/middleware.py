@@ -1,0 +1,114 @@
+"""Request audit logging and correlation-ID middleware."""
+
+import logging
+import time
+import uuid
+from contextvars import ContextVar
+
+from fastapi import Request, Response
+from jose import jwt
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+
+from .auth import auth_settings
+
+logger = logging.getLogger(__name__)
+
+# ── Correlation ID context ──────────────────────────────
+# Available to any code running within the same async task so that downstream
+# log calls can include the request's correlation ID automatically.
+request_id_ctx: ContextVar[str] = ContextVar("request_id", default="")
+
+
+def get_request_id() -> str:
+    """Return the correlation ID for the current request, or empty string."""
+    return request_id_ctx.get()
+
+
+# ── Audit middleware ────────────────────────────────────
+
+class AuditMiddleware(BaseHTTPMiddleware):
+    """Log every HTTP request with correlation ID, client info, and timing.
+
+    Emits a structured JSON log line at the end of every request containing:
+    - ``request_id``: UUID correlation ID (generated or forwarded from
+      ``X-Request-ID`` header)
+    - ``client_ip``: best-effort client IP (respects ``X-Forwarded-For``)
+    - ``session_id``: browser tab fingerprint from ``X-Session-ID`` header
+      (useful for distinguishing users sharing the same account)
+    - ``user_id`` / ``user_email`` / ``user_role``: extracted from the JWT
+      bearer token when present (no DB lookup — purely from token claims)
+    - ``method``, ``path``, ``status``, ``duration_ms``: standard HTTP fields
+    """
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        # Generate or accept correlation ID
+        req_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+        request_id_ctx.set(req_id)
+
+        start = time.monotonic()
+        response = await call_next(request)
+        duration_ms = round((time.monotonic() - start) * 1000)
+
+        # Best-effort client IP (respect reverse proxy header)
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        client_ip = (
+            forwarded_for.split(",")[0].strip()
+            if forwarded_for
+            else (request.client.host if request.client else "unknown")
+        )
+
+        # Browser tab fingerprint (set by frontend)
+        session_id = request.headers.get("X-Session-ID") or ""
+
+        # Extract user identity from JWT (no DB hit)
+        user_id: int | None = None
+        user_email: str | None = None
+        user_role: str | None = None
+        auth_header = request.headers.get("Authorization") or ""
+        if auth_header.startswith("Bearer "):
+            try:
+                payload = jwt.decode(
+                    auth_header[7:],
+                    auth_settings.jwt_secret,
+                    algorithms=[auth_settings.jwt_algorithm],
+                )
+                sub = payload.get("sub")
+                if sub is not None:
+                    user_id = int(sub)
+                user_email = payload.get("email")
+                user_role = payload.get("role")
+            except Exception:
+                pass  # invalid/expired token — just skip identity fields
+
+        extra: dict[str, object] = {
+            "event": "http.request",
+            "request_id": req_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "duration_ms": duration_ms,
+            "client_ip": client_ip,
+        }
+        if session_id:
+            extra["session_id"] = session_id
+        if user_id is not None:
+            extra["user_id"] = user_id
+        if user_email:
+            extra["user_email"] = user_email
+        if user_role:
+            extra["user_role"] = user_role
+
+        logger.info(
+            "%s %s %s %dms",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+            extra=extra,
+        )
+
+        # Echo correlation ID back to the client
+        response.headers["X-Request-ID"] = req_id
+        return response
