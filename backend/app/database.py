@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://corgi:corgi@db:5432/corgi"
     source_images_dir: str = "/data/source_images"
     tiles_dir: str = "/data/tiles"
+    cors_origins: str = "*"
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
 
     @model_validator(mode="after")
     def _normalize_database_scheme(self) -> "Settings":
@@ -23,7 +26,13 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-engine = create_async_engine(settings.database_url, echo=False)
+engine = create_async_engine(
+    settings.database_url,
+    echo=False,
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    pool_pre_ping=True,
+)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
