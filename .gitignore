@@ -68,6 +68,7 @@ app-chart/**
 
 # Secrets
 #**/secrets*
+.env
 
 # Logs
 *.log

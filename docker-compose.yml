@@ -26,6 +26,8 @@ services:
     volumes:
       - ./backend/app:/app/app
       - image_data:/data
+    env_file:
+      - ./backend/.env
     environment:
       - DATABASE_URL=postgresql+asyncpg://corgi:corgi@db:5432/corgi
       - SOURCE_IMAGES_DIR=/data/source_images
@@ -37,6 +39,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health').read()",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
 
   frontend:
     build:
@@ -55,7 +69,8 @@ services:
       - NODE_ENV=development
       - VITE_APP_VERSION=${APP_VERSION:-dev}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
