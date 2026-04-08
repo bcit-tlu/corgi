@@ -507,7 +507,17 @@ export default function CanvasOverlay({
         const textObj = obj as fabric.IText
         base.text = textObj.text || ''
         base.color = (textObj.fill as string) || '#000000'
-        base.vpFontSize = (textObj.fontSize ?? 16) / viewer.viewport.getZoom()
+        // Convert visual font size to viewport units using the bounding-box ratio.
+        // vpWidth/pixelWidth is the conversion factor from pixels to viewport units.
+        // The old formula (fontSize / zoom) was wrong — it produced values in
+        // "font-size / zoom" space, not viewport units, causing the load formula
+        // (vpFontSize * pw / vpWidth) to multiply by containerWidth and produce
+        // enormous pixel sizes (e.g. 60 000 px), rendering text off-screen.
+        const visualFontSize = (textObj.fontSize ?? 16) * (textObj.scaleY ?? 1)
+        const pw = bound.width
+        base.vpFontSize = pw > 0
+          ? visualFontSize * base.vpWidth / pw
+          : visualFontSize / viewer.viewport.getZoom()
         if (type === 'link') {
           base.url = aObj._linkUrl || ''
         }
