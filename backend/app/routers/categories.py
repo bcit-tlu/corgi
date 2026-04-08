@@ -36,10 +36,8 @@ async def _load_tree(db: AsyncSession, parent_id: int | None, *, user_role: str 
 
     # ── Index categories by parent_id ──
     children_by_parent: dict[int | None, list[Category]] = {}
-    cat_lookup: dict[int, Category] = {}
     for cat in all_categories:
         children_by_parent.setdefault(cat.parent_id, []).append(cat)
-        cat_lookup[cat.id] = cat
 
     # ── Recursive assembly (in-memory only, no DB calls) ──
     def _assemble(pid: int | None) -> list[CategoryTree]:
