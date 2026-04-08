@@ -77,6 +77,8 @@ celery.log
 
 # Miscellaneous
 tests/
+!backend/tests/
+!backend/tests/**
 database/
 dump.rdb
 src/git_ignored_folder
