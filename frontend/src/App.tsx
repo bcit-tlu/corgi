@@ -1699,6 +1699,8 @@ export default function App() {
         categories={categories}
         programs={programs}
         onAddCategory={addCategoryInline}
+        onEditCategory={editCategoryInline}
+        onToggleVisibility={toggleCategoryVisibility}
         onViewImage={browseEditImage ? () => {
           setSelectedImage(browseEditImage)
           setBrowseEditImage(null)
