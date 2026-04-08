@@ -179,6 +179,7 @@ export default function App() {
     filename: string
     status: 'processing' | 'completed' | 'failed'
     errorMessage?: string
+    imageId?: number
   }
   const [processingJobs, setProcessingJobs] = useState<ProcessingJob[]>([])
   const processingPollRefs = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
@@ -253,11 +254,13 @@ export default function App() {
             if (controller.signal.aborted) return
             if (src.status === 'completed') {
               refs.delete(job.id)
+              // Mark the job as completed immediately to prevent duplicate
+              // polls if the effect re-runs during the data refresh.
               setProcessingJobs((prev) =>
-                prev.map((j) => j.id === job.id ? { ...j, status: 'completed' as const } : j),
+                prev.map((j) => j.id === job.id ? { ...j, status: 'completed' as const, imageId: src.image_id ?? undefined } : j),
               )
-              loadCategories()
-              loadUncategorizedImages()
+              // Refresh data so the new image is visible in the browse view.
+              await Promise.all([loadCategories(), loadUncategorizedImages()])
             } else if (src.status === 'failed') {
               refs.delete(job.id)
               setProcessingJobs((prev) =>
@@ -1693,7 +1696,74 @@ export default function App() {
             onClose={() => setProcessingJobs((prev) => prev.filter((j) => j.id !== job.id))}
           >
             {job.status === 'processing' && `Processing: ${job.filename}`}
-            {job.status === 'completed' && `"${job.filename}" processed successfully!`}
+            {job.status === 'completed' && (
+              <>
+                {`"${job.filename}" processed successfully! `}
+                {job.imageId != null && (
+                  <Link
+                    component="button"
+                    color="inherit"
+                    underline="always"
+                    sx={{ fontWeight: 'bold', verticalAlign: 'baseline', cursor: 'pointer' }}
+                    onClick={async () => {
+                      // Categories may not have refreshed yet; reload and search fresh data
+                      let found = false
+                      try {
+                        const freshTree = (await fetchCategoryTree()).map(apiTreeToCategory)
+                        setCategories(freshTree)
+                        const result = findImageInTree(freshTree, job.imageId!)
+                        if (result) {
+                          setPage('browse')
+                          setPath(result.path)
+                          setSelectedImage(result.image)
+                          setViewportState(undefined)
+                          setOverlays([])
+                          found = true
+                        }
+                      } catch {
+                        // Fall through to uncategorized check
+                      }
+                      if (!found) {
+                        try {
+                          const freshUncat = (await fetchUncategorizedImages()).map((img) => ({
+                            id: img.id,
+                            name: img.name,
+                            thumb: img.thumb,
+                            tileSources: img.tile_sources,
+                            categoryId: img.category_id,
+                            copyright: img.copyright,
+                            note: img.note,
+                            programIds: img.program_ids,
+                            active: img.active,
+                            version: img.version,
+                            createdAt: img.created_at,
+                            updatedAt: img.updated_at,
+                            metadataExtra: img.metadata_extra,
+                          }))
+                          setUncategorizedImages(freshUncat)
+                          const uncatImg = freshUncat.find((img) => img.id === job.imageId)
+                          if (uncatImg) {
+                            setPage('browse')
+                            setPath([])
+                            setSelectedImage(uncatImg)
+                            setViewportState(undefined)
+                            setOverlays([])
+                            found = true
+                          }
+                        } catch {
+                          // Image not found
+                        }
+                      }
+                      if (found) {
+                        setProcessingJobs((prev) => prev.filter((j) => j.id !== job.id))
+                      }
+                    }}
+                  >
+                    View
+                  </Link>
+                )}
+              </>
+            )}
             {job.status === 'failed' && (job.errorMessage || `"${job.filename}" processing failed.`)}
           </Alert>
         </Snackbar>
