@@ -17,7 +17,7 @@
 
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
-import type { CanvasAnnotation } from './CanvasOverlay'
+import type { CanvasAnnotation } from '../../src/components/CanvasOverlay'
 
 // ---------------------------------------------------------------------------
 // Mocks — fabric.js and OpenSeadragon rely on native canvas / WebGL, so we
@@ -80,7 +80,7 @@ vi.mock('openseadragon', () => {
 })
 
 // Now import the component (after mocks are registered)
-import CanvasOverlay from './CanvasOverlay'
+import CanvasOverlay from '../../src/components/CanvasOverlay'
 
 // ---------------------------------------------------------------------------
 // Helpers
