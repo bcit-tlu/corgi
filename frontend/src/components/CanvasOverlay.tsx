@@ -12,6 +12,7 @@ import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
+import Popover from '@mui/material/Popover'
 
 // MUI Icons
 import CropSquareIcon from '@mui/icons-material/CropSquare'
@@ -22,7 +23,7 @@ import LinkIcon from '@mui/icons-material/Link'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 import CheckIcon from '@mui/icons-material/Check'
-import NearMeIcon from '@mui/icons-material/NearMe'
+import PaletteIcon from '@mui/icons-material/Palette'
 
 /** Serialisable annotation stored in image metadata */
 export interface CanvasAnnotation {
@@ -51,13 +52,13 @@ export interface CanvasAnnotation {
 }
 
 const PALETTE = [
+  '#000000', // Black (default)
   '#FF0000', // Red
   '#2196F3', // Blue
   '#4CAF50', // Green
   '#FFEB3B', // Yellow
   '#FF9800', // Orange
   '#9C27B0', // Purple
-  '#000000', // Black
   '#FFFFFF', // White
 ]
 
@@ -120,7 +121,8 @@ export default function CanvasOverlay({
   const fabricElRef = useRef<HTMLCanvasElement | null>(null)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const [activeTool, setActiveTool] = useState<Tool>('select')
-  const [activeColor, setActiveColor] = useState('#FF0000')
+  const [activeColor, setActiveColor] = useState('#000000')
+  const [colorPickerAnchor, setColorPickerAnchor] = useState<HTMLElement | null>(null)
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
   const [linkText, setLinkText] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
@@ -673,10 +675,10 @@ export default function CanvasOverlay({
     if (!fc) return
     const center = { x: fc.width! / 2, y: fc.height! / 2 }
     const text = new fabric.IText('Text', {
-      left: center.x - 30,
-      top: center.y - 10,
+      left: center.x - 90,
+      top: center.y - 30,
       fontFamily: 'sans-serif',
-      fontSize: 20,
+      fontSize: 60,
       fill: activeColor,
     })
     ;(text as fabric.FabricObject & { _annotationId?: string; _annotationType?: string })._annotationId = uid()
@@ -700,10 +702,10 @@ export default function CanvasOverlay({
     setLinkDialogOpen(false)
     const center = { x: fc.width! / 2, y: fc.height! / 2 }
     const text = new fabric.IText(linkText || linkUrl, {
-      left: center.x - 40,
-      top: center.y - 10,
+      left: center.x - 120,
+      top: center.y - 30,
       fontFamily: 'sans-serif',
-      fontSize: 20,
+      fontSize: 60,
       fill: activeColor,
       underline: true,
     })
@@ -741,6 +743,30 @@ export default function CanvasOverlay({
     emitAnnotations()
     onEditModeChange(false)
   }, [emitAnnotations, onEditModeChange])
+
+  /** Change active color and apply to any selected fabric objects */
+  const handleColorChange = useCallback((color: string) => {
+    setActiveColor(color)
+    setColorPickerAnchor(null)
+    const fc = fabricCanvasRef.current
+    if (!fc) return
+    const active = fc.getActiveObjects()
+    if (active.length === 0) return
+    for (const obj of active) {
+      if (obj instanceof fabric.IText) {
+        // If text is partially selected, change only the selection color
+        if (obj.isEditing && obj.selectionStart !== obj.selectionEnd) {
+          obj.setSelectionStyles({ fill: color })
+        } else {
+          obj.set('fill', color)
+        }
+      } else {
+        obj.set('stroke', color)
+      }
+    }
+    fc.renderAll()
+    emitAnnotations()
+  }, [emitAnnotations])
 
   // Don't render anything if no annotations and not in edit mode
   if (!editMode && annotations.length === 0) return null
@@ -825,128 +851,139 @@ export default function CanvasOverlay({
             py: 0.5,
           }}
         >
-          {/* Select tool */}
-          <Tooltip title="Select / Move">
-            <IconButton
-              size="small"
-              onClick={() => setActiveTool('select')}
-              sx={{
-                color: activeTool === 'select' ? '#90caf9' : 'white',
-                bgcolor: activeTool === 'select' ? 'rgba(255,255,255,0.15)' : 'transparent',
-              }}
-            >
-              <NearMeIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
-          <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
-
           {/* Rectangle */}
           <Tooltip title="Rectangle">
             <IconButton
-              size="small"
               onClick={() => setActiveTool('rect')}
               sx={{
                 color: activeTool === 'rect' ? '#90caf9' : 'white',
                 bgcolor: activeTool === 'rect' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                p: 0.75,
               }}
             >
-              <CropSquareIcon fontSize="small" />
+              <CropSquareIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
 
           {/* Circle */}
           <Tooltip title="Circle / Ellipse">
             <IconButton
-              size="small"
               onClick={() => setActiveTool('circle')}
               sx={{
                 color: activeTool === 'circle' ? '#90caf9' : 'white',
                 bgcolor: activeTool === 'circle' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                p: 0.75,
               }}
             >
-              <CircleOutlinedIcon fontSize="small" />
+              <CircleOutlinedIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
 
           {/* Arrow */}
           <Tooltip title="Arrow">
             <IconButton
-              size="small"
               onClick={() => setActiveTool('arrow')}
               sx={{
                 color: activeTool === 'arrow' ? '#90caf9' : 'white',
                 bgcolor: activeTool === 'arrow' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                p: 0.75,
               }}
             >
-              <ArrowForwardIcon fontSize="small" />
+              <ArrowForwardIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
 
           {/* Text */}
           <Tooltip title="Add Text">
             <IconButton
-              size="small"
               onClick={() => {
                 setActiveTool('text')
                 handleAddText()
               }}
-              sx={{ color: 'white' }}
+              sx={{ color: 'white', p: 0.75 }}
             >
-              <TextFieldsIcon fontSize="small" />
+              <TextFieldsIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
 
           {/* Link */}
           <Tooltip title="Add Hyperlink">
             <IconButton
-              size="small"
               onClick={() => {
                 setActiveTool('link')
                 handleAddLink()
               }}
-              sx={{ color: 'white' }}
+              sx={{ color: 'white', p: 0.75 }}
             >
-              <LinkIcon fontSize="small" />
+              <LinkIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
 
           <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
 
-          {/* Color picker */}
-          <Box sx={{ display: 'flex', gap: '3px', alignItems: 'center', mx: 0.5 }}>
+          {/* Color picker toggle — multicolor icon expands vertical popover */}
+          <Tooltip title="Color">
+            <IconButton
+              onClick={(e) => setColorPickerAnchor(colorPickerAnchor ? null : e.currentTarget)}
+              sx={{ color: 'white', p: 0.75 }}
+            >
+              <PaletteIcon sx={{ fontSize: 28, color: activeColor === '#000000' ? 'white' : activeColor }} />
+            </IconButton>
+          </Tooltip>
+          <Popover
+            open={Boolean(colorPickerAnchor)}
+            anchorEl={colorPickerAnchor}
+            onClose={() => setColorPickerAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+            slotProps={{
+              paper: {
+                sx: {
+                  bgcolor: 'rgba(0,0,0,0.85)',
+                  borderRadius: 1,
+                  p: 0.75,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  alignItems: 'center',
+                  mt: 0.5,
+                },
+              },
+            }}
+          >
             {PALETTE.map((c) => (
-              <Tooltip key={c} title={c}>
+              <Tooltip key={c} title={c} placement="right">
                 <Box
-                  onClick={() => setActiveColor(c)}
+                  onClick={() => handleColorChange(c)}
                   sx={{
-                    width: 18,
-                    height: 18,
+                    width: 24,
+                    height: 24,
                     borderRadius: '50%',
                     bgcolor: c,
                     border: activeColor === c ? '2px solid #90caf9' : '1px solid rgba(255,255,255,0.5)',
                     cursor: 'pointer',
                     '&:hover': { transform: 'scale(1.2)' },
                     transition: 'transform 0.15s',
+                    flexShrink: 0,
                   }}
                 />
               </Tooltip>
             ))}
-          </Box>
+          </Popover>
 
           <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
 
           {/* Delete selected */}
           <Tooltip title="Delete Selected">
-            <IconButton size="small" onClick={handleDeleteSelected} sx={{ color: 'white' }}>
-              <DeleteIcon fontSize="small" />
+            <IconButton onClick={handleDeleteSelected} sx={{ color: 'white', p: 0.75 }}>
+              <DeleteIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
 
           {/* Clear all */}
           <Tooltip title="Clear All Annotations">
-            <IconButton size="small" onClick={handleClearAll} sx={{ color: '#ef5350' }}>
-              <DeleteSweepIcon fontSize="small" />
+            <IconButton onClick={handleClearAll} sx={{ color: '#ef5350', p: 0.75 }}>
+              <DeleteSweepIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
 
@@ -954,8 +991,8 @@ export default function CanvasOverlay({
 
           {/* Done */}
           <Tooltip title="Save & Exit Edit Mode">
-            <IconButton size="small" onClick={handleDone} sx={{ color: '#66bb6a' }}>
-              <CheckIcon fontSize="small" />
+            <IconButton onClick={handleDone} sx={{ color: '#66bb6a', p: 0.75 }}>
+              <CheckIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
         </Box>
