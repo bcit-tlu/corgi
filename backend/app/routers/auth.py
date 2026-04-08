@@ -40,7 +40,12 @@ async def login(
 ):
     """Authenticate with email + password. Returns a JWT bearer token."""
     # Rate limiting (Phase 5.3)
-    client_ip = request.client.host if request.client else "unknown"
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    client_ip = (
+        forwarded_for.split(",")[0].strip()
+        if forwarded_for
+        else (request.client.host if request.client else "unknown")
+    )
     retry_after = await check_login_rate_limit(client_ip)
     if retry_after is not None:
         raise HTTPException(

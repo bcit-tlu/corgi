@@ -14,25 +14,34 @@ from .database import settings
 logger = logging.getLogger(__name__)
 
 _redis: Redis | None = None
-_redis_checked = False
+_RETRY_BACKOFF_SECS = 30.0
+_last_failure: float = 0.0
 
 
 async def _get_redis() -> Redis | None:
-    """Return a shared async Redis client, or ``None`` if unavailable."""
-    global _redis, _redis_checked
+    """Return a shared async Redis client, or ``None`` if unavailable.
+
+    After a connection failure the function backs off for
+    ``_RETRY_BACKOFF_SECS`` seconds before retrying, to avoid hammering
+    a down Redis on every login request while still recovering
+    automatically once Redis comes back.
+    """
+    global _redis, _last_failure
     if _redis is not None:
         return _redis
-    if _redis_checked:
+    if _last_failure and (time.time() - _last_failure) < _RETRY_BACKOFF_SECS:
         return None
     try:
         client = Redis.from_url(settings.redis_url, decode_responses=True)
         await client.ping()
         _redis = client
+        _last_failure = 0.0
         return _redis
     except Exception:
-        _redis_checked = True
+        _last_failure = time.time()
         logger.warning(
-            "Redis unavailable — login rate limiting disabled",
+            "Redis unavailable — login rate limiting disabled (will retry in %ds)",
+            int(_RETRY_BACKOFF_SECS),
             extra={"event": "rate_limit.redis_unavailable"},
         )
         return None
