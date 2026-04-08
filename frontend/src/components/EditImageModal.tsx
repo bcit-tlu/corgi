@@ -335,6 +335,7 @@ export default function EditImageModal({
   onAddCategory,
   onEditCategory,
   onToggleVisibility,
+  onViewImage,
 }: EditImageModalProps) {
   const formKey = image ? `edit-${image.id}` : 'closed'
 
