@@ -1,3 +1,6 @@
+{{- if and .Values.tileSidecar.enabled (not .Values.persistence.enabled) }}
+{{- fail "tileSidecar.enabled requires persistence.enabled — the sidecar serves tiles from the PVC" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
