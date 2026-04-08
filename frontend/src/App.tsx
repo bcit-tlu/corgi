@@ -179,6 +179,9 @@ export default function App() {
   const canvasSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const canvasSaveInFlightRef = useRef(false)
   const pendingCanvasAnnotationsRef = useRef<CanvasAnnotation[] | null>(null)
+  /** Always-current annotations last passed to handleCanvasAnnotationsChange.
+   *  Used by flushCanvasAnnotations to avoid reading stale React state. */
+  const latestCanvasAnnotationsRef = useRef<CanvasAnnotation[] | null>(null)
   // Track which image ID the current in-flight save targets so stale completions
   // don't overwrite refs after an image change
   const saveTargetImageIdRef = useRef<number | null>(null)
@@ -627,6 +630,7 @@ export default function App() {
       canvasSaveTimerRef.current = null
     }
     pendingCanvasAnnotationsRef.current = null
+    latestCanvasAnnotationsRef.current = null
     canvasSaveInFlightRef.current = false
     saveTargetImageIdRef.current = null
   }, [selectedImage])
@@ -697,6 +701,7 @@ export default function App() {
   // Also eagerly updates local state so view mode reflects edits immediately.
   const handleCanvasAnnotationsChange = useCallback((annotations: CanvasAnnotation[]) => {
     setLocalCanvasAnnotations(annotations)
+    latestCanvasAnnotationsRef.current = annotations
     if (canvasSaveTimerRef.current) clearTimeout(canvasSaveTimerRef.current)
     if (canvasSaveInFlightRef.current) {
       // A save is in-flight — queue the latest data (replaces any prior queued data)
@@ -731,13 +736,15 @@ export default function App() {
       }
       return
     }
-    // If the timer was pending, localCanvasAnnotations has the latest data
+    // Use the ref (always current) instead of localCanvasAnnotations state
+    // which may be stale due to React's async state batching.
+    const latest = latestCanvasAnnotationsRef.current
     if (pending) {
       await saveCanvasAnnotations(pending)
-    } else if (localCanvasAnnotations) {
-      await saveCanvasAnnotations(localCanvasAnnotations)
+    } else if (latest) {
+      await saveCanvasAnnotations(latest)
     }
-  }, [saveCanvasAnnotations, localCanvasAnnotations])
+  }, [saveCanvasAnnotations])
 
   // Build measurement config from the selected image's metadata
   const selectedImageMeasurement = useMemo((): MeasurementConfig | undefined => {
