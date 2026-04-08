@@ -11,6 +11,7 @@ pkgs.mkShell {
     git
     jq
     vault
+    poetry
     nixd
   ];
 }
