@@ -10,6 +10,14 @@ from fastapi import HTTPException
 from app.routers.auth import login, get_me, LoginRequest
 
 
+def _mock_request(client_ip: str = "127.0.0.1") -> MagicMock:
+    """Build a mock Request with headers and client for rate-limit extraction."""
+    req = MagicMock()
+    req.headers.get.return_value = None  # no X-Forwarded-For
+    req.client.host = client_ip
+    return req
+
+
 def _make_user(
     id: int = 1,
     name: str = "Test User",
@@ -50,7 +58,7 @@ async def test_login_success() -> None:
 
     with patch("app.routers.auth.verify_password", return_value=True):
         with patch("app.routers.auth.create_access_token", return_value="jwt-token"):
-            result = await login(body, db)
+            result = await login(body, _mock_request(), db)
 
     assert result.access_token == "jwt-token"
     assert result.user.email == "test@example.com"
@@ -66,7 +74,7 @@ async def test_login_unknown_email() -> None:
     body = LoginRequest(email="nonexistent@example.com", password="secret")
 
     with pytest.raises(HTTPException) as exc:
-        await login(body, db)
+        await login(body, _mock_request(), db)
     assert exc.value.status_code == 401
 
 
@@ -82,7 +90,7 @@ async def test_login_no_password_hash() -> None:
     body = LoginRequest(email="test@example.com", password="secret")
 
     with pytest.raises(HTTPException) as exc:
-        await login(body, db)
+        await login(body, _mock_request(), db)
     assert exc.value.status_code == 401
 
 
@@ -99,7 +107,7 @@ async def test_login_wrong_password() -> None:
 
     with patch("app.routers.auth.verify_password", return_value=False):
         with pytest.raises(HTTPException) as exc:
-            await login(body, db)
+            await login(body, _mock_request(), db)
     assert exc.value.status_code == 401
 
 
@@ -119,7 +127,7 @@ async def test_login_with_program_rel() -> None:
 
     with patch("app.routers.auth.verify_password", return_value=True):
         with patch("app.routers.auth.create_access_token", return_value="jwt-token"):
-            result = await login(body, db)
+            result = await login(body, _mock_request(), db)
 
     assert result.user.program_name == "Biology"
 

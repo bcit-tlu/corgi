@@ -36,6 +36,7 @@ def _make_image(
         note=None,
         active=active,
         metadata_=None,
+        version=1,
         created_at=now,
         updated_at=now,
         programs=[],
@@ -44,6 +45,13 @@ def _make_image(
 
 def _make_user(role: str = "admin") -> SimpleNamespace:
     return SimpleNamespace(id=1, role=role, email="u@example.com")
+
+
+def _mock_request() -> MagicMock:
+    """Build a mock Request with headers for optimistic concurrency."""
+    req = MagicMock()
+    req.headers.get.return_value = None  # no If-Match header
+    return req
 
 
 async def test_list_images_admin() -> None:
@@ -189,7 +197,7 @@ async def test_update_image_success() -> None:
     db.refresh = AsyncMock()
 
     body = ImageUpdate(name="updated")
-    result = await update_image(1, body, _make_user(), db)
+    result = await update_image(1, body, _mock_request(), _make_user(), db)
     assert img.name == "updated"
 
 
@@ -199,7 +207,7 @@ async def test_update_image_not_found() -> None:
 
     body = ImageUpdate(name="nope")
     with pytest.raises(HTTPException) as exc:
-        await update_image(999, body, _make_user(), db)
+        await update_image(999, body, _mock_request(), _make_user(), db)
     assert exc.value.status_code == 404
 
 
@@ -211,7 +219,7 @@ async def test_update_image_with_metadata() -> None:
     db.refresh = AsyncMock()
 
     body = ImageUpdate(metadata_extra={"key": "val"})
-    result = await update_image(1, body, _make_user(), db)
+    result = await update_image(1, body, _mock_request(), _make_user(), db)
     assert img.metadata_ == {"key": "val"}
 
 
@@ -228,7 +236,7 @@ async def test_update_image_with_programs() -> None:
     db.execute = AsyncMock(return_value=mock_result)
 
     body = ImageUpdate(program_ids=[10])
-    result = await update_image(1, body, _make_user(), db)
+    result = await update_image(1, body, _mock_request(), _make_user(), db)
     assert img.programs == progs
 
 

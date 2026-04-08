@@ -121,6 +121,7 @@ function apiTreeToCategory(node: ApiCategoryTree): Category {
       note: img.note,
       programIds: img.program_ids,
       active: img.active,
+      version: img.version,
       createdAt: img.created_at,
       updatedAt: img.updated_at,
       metadataExtra: img.metadata_extra,
@@ -163,6 +164,10 @@ export default function App() {
   const pendingViewport = useRef<ViewportState | undefined>(undefined)
   const pendingOverlays = useRef<OverlayRect[] | undefined>(undefined)
   const uncategorizedLoaded = useRef(false)
+  // Track the latest known image version independently from selectedImage
+  // to avoid stale-version 409s when clearing overlays after locking
+  // (lock intentionally does NOT update selectedImage to avoid viewer remount).
+  const latestVersionRef = useRef<number>(0)
 
   // Report issue modal state
   const [reportIssueOpen, setReportIssueOpen] = useState(false)
@@ -415,6 +420,7 @@ export default function App() {
           note: img.note,
           programIds: img.program_ids,
           active: img.active,
+          version: img.version,
           createdAt: img.created_at,
           updatedAt: img.updated_at,
           metadataExtra: img.metadata_extra,
@@ -592,6 +598,11 @@ export default function App() {
     setLockEngaged(hasLockedOverlays)
   }, [hasLockedOverlays])
 
+  // Reset version ref when a different image is selected
+  useEffect(() => {
+    latestVersionRef.current = selectedImage?.version ?? 0
+  }, [selectedImage])
+
   // Memoize initialOverlays: use locked overlays on initial load if no URL overlays
   const initialOverlays = useMemo(() => {
     if (lockedOverlays && lockedOverlays.length > 0 && overlays.length === 0) {
@@ -618,7 +629,9 @@ export default function App() {
     try {
       const meta = selectedImage.metadataExtra ?? {}
       const updatedMeta = { ...meta, locked_overlays: rects }
-      await apiUpdateImage(selectedImage.id, { metadata_extra: updatedMeta })
+      const currentVersion = latestVersionRef.current || selectedImage.version
+      const updated = await apiUpdateImage(selectedImage.id, { metadata_extra: updatedMeta }, currentVersion)
+      latestVersionRef.current = updated.version
       setLockEngaged(true)
       await loadCategories()
       loadUncategorizedImages()
@@ -643,9 +656,11 @@ export default function App() {
       const meta = { ...(selectedImage.metadataExtra ?? {}) } as Record<string, unknown>
       delete meta.locked_overlays
       const updatedMeta = Object.keys(meta).length > 0 ? meta : null
-      await apiUpdateImage(selectedImage.id, {
+      const currentVersion = latestVersionRef.current || selectedImage.version
+      const updated = await apiUpdateImage(selectedImage.id, {
         metadata_extra: updatedMeta as Record<string, unknown> | undefined,
-      })
+      }, currentVersion)
+      latestVersionRef.current = updated.version
       await loadCategories()
       loadUncategorizedImages()
     } catch (err) {
@@ -832,6 +847,7 @@ export default function App() {
         note: selectedImage.note ?? null,
         program_ids: selectedImage.programIds,
         active: selectedImage.active,
+        version: selectedImage.version,
         metadata_extra: selectedImage.metadataExtra ?? null,
         created_at: selectedImage.createdAt ?? '',
         updated_at: selectedImage.updatedAt ?? '',
@@ -850,6 +866,7 @@ export default function App() {
         note: browseEditImage.note ?? null,
         program_ids: browseEditImage.programIds,
         active: browseEditImage.active,
+        version: browseEditImage.version,
         metadata_extra: browseEditImage.metadataExtra ?? null,
         created_at: browseEditImage.createdAt ?? '',
         updated_at: browseEditImage.updatedAt ?? '',
@@ -886,6 +903,7 @@ export default function App() {
           note: updated.note,
           programIds: updated.program_ids,
           active: updated.active,
+          version: updated.version,
           createdAt: updated.created_at,
           updatedAt: updated.updated_at,
           metadataExtra: updated.metadata_extra,
@@ -1108,6 +1126,7 @@ export default function App() {
                   note: img.note,
                   programIds: img.program_ids,
                   active: img.active,
+                  version: img.version,
                   createdAt: img.created_at,
                   updatedAt: img.updated_at,
                   metadataExtra: img.metadata_extra,

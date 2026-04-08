@@ -78,7 +78,9 @@ async def _process_bulk_import(job_id: int, file_entries: list[tuple[str, str]])
                 await db.commit()
                 await db.refresh(src)
 
-            # Process through VIPS pipeline (this acquires the semaphore)
+            # Process through VIPS pipeline (this acquires the semaphore).
+            # Note: bulk imports use direct processing (not arq) because the
+            # job-tracking logic below needs synchronous completion status.
             async with semaphore:
                 try:
                     await process_source_image(src.id)
