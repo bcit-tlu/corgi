@@ -16,6 +16,7 @@ import Select from '@mui/material/Select'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import type { ApiImage } from '../api'
@@ -40,9 +41,10 @@ interface EditImageModalProps {
   image: ApiImage | null
   categories: Category[]
   programs: Program[]
-  onAddCategory?: (label: string, parentId: number | null) => Promise<void>
+  onAddCategory?: (label: string, parentId: number | null) => Promise<number | void>
   onEditCategory?: (categoryId: number, newLabel: string) => Promise<void>
   onToggleVisibility?: (categoryId: number, hidden: boolean) => Promise<void>
+  onViewImage?: () => void
 }
 
 function EditImageForm({
@@ -55,6 +57,7 @@ function EditImageForm({
   onAddCategory,
   onEditCategory,
   onToggleVisibility,
+  onViewImage,
 }: Omit<EditImageModalProps, 'open'>) {
   const [name, setName] = useState(image?.name ?? '')
   const [categoryId, setCategoryId] = useState<number | null>(image?.category_id ?? null)
@@ -125,7 +128,19 @@ function EditImageForm({
 
   return (
     <>
-      <DialogTitle>Edit Details</DialogTitle>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        Edit Details
+        {onViewImage && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<VisibilityIcon />}
+            onClick={onViewImage}
+          >
+            View Image
+          </Button>
+        )}
+      </DialogTitle>
       <DialogContent
         sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}
       >
@@ -337,6 +352,7 @@ export default function EditImageModal({
           onAddCategory={onAddCategory}
           onEditCategory={onEditCategory}
           onToggleVisibility={onToggleVisibility}
+          onViewImage={onViewImage}
         />
       )}
     </Dialog>
