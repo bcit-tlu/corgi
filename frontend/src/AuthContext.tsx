@@ -47,17 +47,19 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // On mount, check for an OIDC token in the URL (returned after IdP callback).
-  // If present, store it and validate via /auth/me just like a normal session.
+  // On mount, check for an OIDC token in the URL fragment (returned after
+  // IdP callback).  A fragment (#) is used instead of a query parameter so
+  // the JWT never appears in server access logs.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
+    const hash = window.location.hash.replace(/^#/, '')
+    const params = new URLSearchParams(hash)
     const oidcToken = params.get('oidc_token')
     if (oidcToken) {
       setToken(oidcToken)
       // Remove the token from the URL so it is not bookmarked or shared
       params.delete('oidc_token')
       const remaining = params.toString()
-      const cleanUrl = window.location.pathname + (remaining ? `?${remaining}` : '')
+      const cleanUrl = window.location.pathname + window.location.search + (remaining ? `#${remaining}` : '')
       window.history.replaceState({}, '', cleanUrl)
     }
   }, [])

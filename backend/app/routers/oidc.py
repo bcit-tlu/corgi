@@ -51,11 +51,12 @@ def _parse_role_mapping() -> dict[str, str]:
     return {}
 
 
-def _resolve_role(groups: list[str]) -> str:
+def _resolve_role(groups: list[str]) -> str | None:
     """Map IdP groups/claims to a CORGI role.
 
-    The first matching group in the mapping wins.  Unmapped users default
-    to ``student`` as specified in the scalability plan.
+    The first matching group in the mapping wins.  Returns ``None`` when
+    no group matched any mapping entry so callers can distinguish
+    "no mapping available" from an explicit role assignment.
     """
     mapping = _parse_role_mapping()
     for group in groups:
@@ -63,7 +64,7 @@ def _resolve_role(groups: list[str]) -> str:
             role = mapping[group]
             if role in ("admin", "instructor", "student"):
                 return role
-    return "student"
+    return None
 
 
 def _ensure_oidc_enabled() -> None:
@@ -154,9 +155,9 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
             detail="IdP did not return required claims (sub, email)",
         )
 
-    # Resolve role from IdP groups
+    # Resolve role from IdP groups — None means no group matched a mapping
     groups: list[str] = userinfo.get("groups", [])
-    role = _resolve_role(groups)
+    resolved_role = _resolve_role(groups)
 
     # Upsert: find by oidc_subject first, then by email
     result = await db.execute(
@@ -176,12 +177,12 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
         user = result.scalars().first()
 
     if user is None:
-        # Brand-new user — create account
+        # Brand-new user — create account (default to student if no mapping matched)
         user = User(
             name=name,
             email=email,
             oidc_subject=sub,
-            role=role,
+            role=resolved_role or "student",
             last_access=datetime.now(timezone.utc),
         )
         db.add(user)
@@ -193,7 +194,7 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
                 "event": "oidc.user_created",
                 "user_id": user.id,
                 "email": email,
-                "role": role,
+                "role": resolved_role or "student",
             },
         )
     else:
@@ -214,10 +215,11 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
             )
         if not user.oidc_subject:
             user.oidc_subject = sub
-        # Only update role from IdP when groups were actually provided;
-        # otherwise preserve admin-assigned roles.
-        if groups:
-            user.role = role
+        # Only update role when a group actually matched a mapping entry;
+        # this preserves admin-assigned promotions when the IdP sends
+        # unrecognised groups or no groups at all.
+        if resolved_role is not None:
+            user.role = resolved_role
         user.last_access = datetime.now(timezone.utc)
         logger.info(
             "OIDC: logged in existing user",
@@ -225,7 +227,7 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
                 "event": "oidc.login_success",
                 "user_id": user.id,
                 "email": email,
-                "role": role,
+                "role": resolved_role,
             },
         )
 
@@ -251,6 +253,8 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
             detail="OIDC post-login redirect is not configured. "
                    "Set OIDC_POST_LOGIN_REDIRECT or a non-wildcard CORS_ORIGINS.",
         )
-    redirect_url = f"{frontend_origin.rstrip('/')}/?oidc_token={jwt_token}"
+    # Use a URL fragment (#) instead of a query parameter (?) so the JWT
+    # is never sent to the server and does not appear in access logs.
+    redirect_url = f"{frontend_origin.rstrip('/')}/#oidc_token={jwt_token}"
 
     return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
