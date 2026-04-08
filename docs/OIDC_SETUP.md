@@ -94,6 +94,16 @@ When an OIDC user logs in for the first time and their email matches an
 existing local account, the accounts are linked automatically by
 populating `oidc_subject`.
 
+### Migrating an existing database
+
+The `db/init.sql` change only runs on **fresh** database creation.  If
+you are upgrading an existing deployment, run the following migration
+manually (or via a Kubernetes Job):
+
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS oidc_subject VARCHAR(255) UNIQUE;
+```
+
 ---
 
 ## Local Development

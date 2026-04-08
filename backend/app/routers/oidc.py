@@ -8,25 +8,20 @@ import json
 import logging
 from datetime import datetime, timezone
 
-import httpx
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from starlette.middleware.sessions import SessionMiddleware  # noqa: F401 — referenced in docs
 
-from ..auth import AuthSettings, create_access_token
-from ..database import Settings, get_db
+from ..auth import create_access_token
+from ..database import get_db, settings as _settings
 from ..models import User
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth/oidc", tags=["auth-oidc"])
-
-_settings = Settings()
-_auth_settings = AuthSettings()
 
 # ── OIDC provider bootstrap ─────────────────────────────
 
@@ -108,7 +103,7 @@ async def oidc_login(request: Request):
 @router.get("/callback")
 async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
     """Exchange the authorization code for tokens, upsert the user, and
-    redirect to the frontend with a JWT in the URL fragment."""
+    redirect to the frontend with a JWT."""
     _ensure_oidc_enabled()
     client = oauth.create_client("oidc")
     if client is None:
@@ -223,9 +218,11 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
     jwt_token = create_access_token(user)
 
-    # Redirect to the frontend with the token and user info in the URL
-    # fragment (never sent to the server, safer than query params).
-    frontend_origin = _settings.cors_origins.split(",")[0].strip() or ""
+    # Redirect to the frontend with the JWT so AuthContext can bootstrap
+    # the session.  Derive the frontend URL from CORS_ORIGINS; skip the
+    # wildcard default used in local dev.
+    origins = [o.strip() for o in _settings.cors_origins.split(",") if o.strip()]
+    frontend_origin = next((o for o in origins if o != "*"), "")
     redirect_url = f"{frontend_origin}/?oidc_token={jwt_token}"
 
     return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
