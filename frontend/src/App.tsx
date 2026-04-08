@@ -179,6 +179,7 @@ export default function App() {
     filename: string
     status: 'processing' | 'completed' | 'failed'
     errorMessage?: string
+    imageId?: number
   }
   const [processingJobs, setProcessingJobs] = useState<ProcessingJob[]>([])
   const processingPollRefs = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
@@ -254,7 +255,7 @@ export default function App() {
             if (src.status === 'completed') {
               refs.delete(job.id)
               setProcessingJobs((prev) =>
-                prev.map((j) => j.id === job.id ? { ...j, status: 'completed' as const } : j),
+                prev.map((j) => j.id === job.id ? { ...j, status: 'completed' as const, imageId: src.image_id ?? undefined } : j),
               )
               loadCategories()
               loadUncategorizedImages()
@@ -1693,7 +1694,41 @@ export default function App() {
             onClose={() => setProcessingJobs((prev) => prev.filter((j) => j.id !== job.id))}
           >
             {job.status === 'processing' && `Processing: ${job.filename}`}
-            {job.status === 'completed' && `"${job.filename}" processed successfully!`}
+            {job.status === 'completed' && (
+              <>
+                {`"${job.filename}" processed successfully! `}
+                {job.imageId != null && (
+                  <Link
+                    component="button"
+                    color="inherit"
+                    underline="always"
+                    sx={{ fontWeight: 'bold', verticalAlign: 'baseline', cursor: 'pointer' }}
+                    onClick={() => {
+                      const result = findImageInTree(categories, job.imageId!)
+                      if (result) {
+                        setPage('browse')
+                        setPath(result.path)
+                        setSelectedImage(result.image)
+                        setViewportState(undefined)
+                        setOverlays([])
+                      } else {
+                        const uncatImg = uncategorizedImages.find((img) => img.id === job.imageId)
+                        if (uncatImg) {
+                          setPage('browse')
+                          setPath([])
+                          setSelectedImage(uncatImg)
+                          setViewportState(undefined)
+                          setOverlays([])
+                        }
+                      }
+                      setProcessingJobs((prev) => prev.filter((j) => j.id !== job.id))
+                    }}
+                  >
+                    View
+                  </Link>
+                )}
+              </>
+            )}
             {job.status === 'failed' && (job.errorMessage || `"${job.filename}" processing failed.`)}
           </Alert>
         </Snackbar>
