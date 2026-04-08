@@ -24,6 +24,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 import CheckIcon from '@mui/icons-material/Check'
 import PaletteIcon from '@mui/icons-material/Palette'
+import LineWeightIcon from '@mui/icons-material/LineWeight'
 
 /** Serialisable annotation stored in image metadata */
 export interface CanvasAnnotation {
@@ -49,6 +50,10 @@ export interface CanvasAnnotation {
   vpX2?: number
   /** Arrow endpoint in viewport coords */
   vpY2?: number
+  /** Arrow head style */
+  arrowStyle?: 'none' | 'standard' | 'triangle' | 'circle'
+  /** Whether shape is filled (rect/circle) */
+  filled?: boolean
 }
 
 const PALETTE = [
@@ -62,7 +67,20 @@ const PALETTE = [
   '#FFFFFF', // White
 ]
 
+const LINE_WIDTHS = [1, 2, 4, 8]
+
+type ArrowStyle = 'none' | 'standard' | 'triangle' | 'circle'
+type FillMode = 'outlined' | 'filled'
 type Tool = 'select' | 'rect' | 'circle' | 'arrow' | 'text' | 'link'
+
+/** Custom properties attached to fabric objects */
+type AnnotatedObject = fabric.FabricObject & {
+  _annotationId?: string
+  _annotationType?: string
+  _linkUrl?: string
+  _arrowStyle?: ArrowStyle
+  _filled?: boolean
+}
 
 interface CanvasOverlayProps {
   viewer: OpenSeadragon.Viewer
@@ -73,13 +91,15 @@ interface CanvasOverlayProps {
   onEditModeChange: (mode: boolean) => void
 }
 
+const LOG_PREFIX = '[CanvasOverlay]'
+
 /** Generate a short random ID */
 function uid(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 
 /**
- * Draw a filled arrowhead at the end of a line on a plain canvas context.
+ * Draw an arrowhead at the end of a line on a plain canvas context.
  */
 function drawArrowhead(
   ctx: CanvasRenderingContext2D,
@@ -89,21 +109,46 @@ function drawArrowhead(
   y2: number,
   headLen: number,
   color: string,
+  style: ArrowStyle,
 ) {
+  if (style === 'none') return
   const angle = Math.atan2(y2 - y1, x2 - x1)
+
+  if (style === 'circle') {
+    const radius = headLen / 2
+    ctx.beginPath()
+    ctx.arc(x2, y2, radius, 0, 2 * Math.PI)
+    ctx.fillStyle = color
+    ctx.fill()
+    return
+  }
+
+  // 'standard' = open V, 'triangle' = filled triangle
   ctx.beginPath()
   ctx.moveTo(x2, y2)
   ctx.lineTo(
     x2 - headLen * Math.cos(angle - Math.PI / 6),
     y2 - headLen * Math.sin(angle - Math.PI / 6),
   )
-  ctx.lineTo(
-    x2 - headLen * Math.cos(angle + Math.PI / 6),
-    y2 - headLen * Math.sin(angle + Math.PI / 6),
-  )
-  ctx.closePath()
-  ctx.fillStyle = color
-  ctx.fill()
+  if (style === 'triangle') {
+    ctx.lineTo(
+      x2 - headLen * Math.cos(angle + Math.PI / 6),
+      y2 - headLen * Math.sin(angle + Math.PI / 6),
+    )
+    ctx.closePath()
+    ctx.fillStyle = color
+    ctx.fill()
+  } else {
+    // standard: draw both prongs as stroked lines
+    ctx.moveTo(x2, y2)
+    ctx.lineTo(
+      x2 - headLen * Math.cos(angle + Math.PI / 6),
+      y2 - headLen * Math.sin(angle + Math.PI / 6),
+    )
+    ctx.strokeStyle = color
+    ctx.lineWidth = Math.max(1, headLen / 4)
+    ctx.stroke()
+  }
 }
 
 export default function CanvasOverlay({
@@ -122,7 +167,14 @@ export default function CanvasOverlay({
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const [activeTool, setActiveTool] = useState<Tool>('select')
   const [activeColor, setActiveColor] = useState('#000000')
+  const [activeLineWidth, setActiveLineWidth] = useState(2)
+  const [activeArrowStyle, setActiveArrowStyle] = useState<ArrowStyle>('standard')
+  const [activeFillMode, setActiveFillMode] = useState<FillMode>('outlined')
   const [colorPickerAnchor, setColorPickerAnchor] = useState<HTMLElement | null>(null)
+  const [lineWidthAnchor, setLineWidthAnchor] = useState<HTMLElement | null>(null)
+  const [arrowAnchor, setArrowAnchor] = useState<HTMLElement | null>(null)
+  const [rectAnchor, setRectAnchor] = useState<HTMLElement | null>(null)
+  const [circleAnchor, setCircleAnchor] = useState<HTMLElement | null>(null)
   const [linkDialogOpen, setLinkDialogOpen] = useState(false)
   const [linkText, setLinkText] = useState('')
   const [linkUrl, setLinkUrl] = useState('')
@@ -135,7 +187,7 @@ export default function CanvasOverlay({
     annotationsRef.current = annotations
   }, [annotations])
 
-  // ─── View mode: render annotations on a plain canvas ──────────
+  // View mode: render annotations on a plain canvas
   const redrawViewCanvas = useCallback(() => {
     const canvas = viewCanvasRef.current
     if (!canvas || !viewer.viewport) return
@@ -168,8 +220,10 @@ export default function CanvasOverlay({
         const sw = (ann.strokeWidth ?? 2) * viewer.viewport.getZoom()
         ctx.lineWidth = Math.max(1, sw)
         ctx.stroke()
-        const headLen = Math.max(8, sw * 4)
-        drawArrowhead(ctx, topLeft.x, topLeft.y, endPt.x, endPt.y, headLen, ann.color)
+        // Arrowhead: 3x larger default
+        const headLen = Math.max(24, sw * 12)
+        const arrowStyle = ann.arrowStyle ?? 'standard'
+        drawArrowhead(ctx, topLeft.x, topLeft.y, endPt.x, endPt.y, headLen, ann.color, arrowStyle)
         continue
       }
 
@@ -180,10 +234,15 @@ export default function CanvasOverlay({
       const ph = bottomRight.y - topLeft.y
 
       if (ann.type === 'rect') {
-        ctx.strokeStyle = ann.color
         const sw = (ann.strokeWidth ?? 2) * viewer.viewport.getZoom()
         ctx.lineWidth = Math.max(1, sw)
-        ctx.strokeRect(topLeft.x, topLeft.y, pw, ph)
+        if (ann.filled) {
+          ctx.fillStyle = ann.color
+          ctx.fillRect(topLeft.x, topLeft.y, pw, ph)
+        } else {
+          ctx.strokeStyle = ann.color
+          ctx.strokeRect(topLeft.x, topLeft.y, pw, ph)
+        }
       } else if (ann.type === 'circle') {
         ctx.beginPath()
         ctx.ellipse(
@@ -195,10 +254,15 @@ export default function CanvasOverlay({
           0,
           2 * Math.PI,
         )
-        ctx.strokeStyle = ann.color
         const sw = (ann.strokeWidth ?? 2) * viewer.viewport.getZoom()
         ctx.lineWidth = Math.max(1, sw)
-        ctx.stroke()
+        if (ann.filled) {
+          ctx.fillStyle = ann.color
+          ctx.fill()
+        } else {
+          ctx.strokeStyle = ann.color
+          ctx.stroke()
+        }
       } else if (ann.type === 'text' || ann.type === 'link') {
         const vpFontSize = ann.vpFontSize ?? 0.02
         const pxFontSize = Math.abs(vpFontSize * (bottomRight.x - topLeft.x) / (ann.vpWidth || 1))
@@ -206,8 +270,6 @@ export default function CanvasOverlay({
         ctx.font = `${fontSize}px sans-serif`
         ctx.fillStyle = ann.color
         if (ann.type === 'link') {
-          ctx.fillStyle = ann.color
-          // Underline
           const text = ann.text || ann.url || 'Link'
           ctx.fillText(text, topLeft.x, topLeft.y + fontSize)
           const textWidth = ctx.measureText(text).width
@@ -231,7 +293,6 @@ export default function CanvasOverlay({
     viewer.addHandler('animation', handler)
     viewer.addHandler('animation-finish', handler)
     viewer.addHandler('resize', handler)
-    // Initial draw
     redrawViewCanvas()
     return () => {
       viewer.removeHandler('animation', handler)
@@ -240,8 +301,7 @@ export default function CanvasOverlay({
     }
   }, [viewer, editMode, redrawViewCanvas, annotations])
 
-  // ─── Clickable link layer (view mode) ─────────────────────────
-  // Render invisible anchor boxes over link annotations
+  // Clickable link layer (view mode)
   const [linkBoxes, setLinkBoxes] = useState<
     Array<{ key: string; left: number; top: number; width: number; height: number; url: string; text: string }>
   >([])
@@ -277,7 +337,6 @@ export default function CanvasOverlay({
     viewer.addHandler('animation', handler)
     viewer.addHandler('animation-finish', handler)
     viewer.addHandler('resize', handler)
-    // Defer initial link-box computation to avoid synchronous setState in effect
     const raf = requestAnimationFrame(() => updateLinkBoxes())
     return () => {
       cancelAnimationFrame(raf)
@@ -287,9 +346,9 @@ export default function CanvasOverlay({
     }
   }, [viewer, editMode, updateLinkBoxes, annotations])
 
-  // ─── Edit mode: fabric.js canvas ──────────────────────────────
+  // Edit mode: fabric.js canvas
 
-  /** Convert viewport annotation → fabric object at current zoom */
+  /** Convert viewport annotation to fabric object at current zoom */
   const annotationToFabric = useCallback(
     (ann: CanvasAnnotation): fabric.FabricObject | null => {
       if (!viewer.viewport) return null
@@ -310,8 +369,10 @@ export default function CanvasOverlay({
             hasControls: true,
           },
         )
-        ;(line as fabric.FabricObject & { _annotationId?: string; _annotationType?: string })._annotationId = ann.id
-        ;(line as fabric.FabricObject & { _annotationType?: string })._annotationType = 'arrow'
+        const aObj = line as AnnotatedObject
+        aObj._annotationId = ann.id
+        aObj._annotationType = 'arrow'
+        aObj._arrowStyle = ann.arrowStyle ?? 'standard'
         return line
       }
 
@@ -322,34 +383,40 @@ export default function CanvasOverlay({
       const ph = bottomRight.y - topLeft.y
 
       if (ann.type === 'rect') {
+        const isFilled = ann.filled ?? false
         const rect = new fabric.Rect({
           left: topLeft.x,
           top: topLeft.y,
           width: Math.abs(pw),
           height: Math.abs(ph),
-          fill: 'transparent',
+          fill: isFilled ? ann.color : 'transparent',
           stroke: ann.color,
           strokeWidth: Math.max(1, (ann.strokeWidth ?? 2) * viewer.viewport.getZoom()),
           strokeUniform: true,
         })
-        ;(rect as fabric.FabricObject & { _annotationId?: string; _annotationType?: string })._annotationId = ann.id
-        ;(rect as fabric.FabricObject & { _annotationType?: string })._annotationType = 'rect'
+        const aObj = rect as AnnotatedObject
+        aObj._annotationId = ann.id
+        aObj._annotationType = 'rect'
+        aObj._filled = isFilled
         return rect
       }
 
       if (ann.type === 'circle') {
+        const isFilled = ann.filled ?? false
         const ellipse = new fabric.Ellipse({
           left: topLeft.x,
           top: topLeft.y,
           rx: Math.abs(pw / 2),
           ry: Math.abs(ph / 2),
-          fill: 'transparent',
+          fill: isFilled ? ann.color : 'transparent',
           stroke: ann.color,
           strokeWidth: Math.max(1, (ann.strokeWidth ?? 2) * viewer.viewport.getZoom()),
           strokeUniform: true,
         })
-        ;(ellipse as fabric.FabricObject & { _annotationId?: string; _annotationType?: string })._annotationId = ann.id
-        ;(ellipse as fabric.FabricObject & { _annotationType?: string })._annotationType = 'circle'
+        const aObj = ellipse as AnnotatedObject
+        aObj._annotationId = ann.id
+        aObj._annotationType = 'circle'
+        aObj._filled = isFilled
         return ellipse
       }
 
@@ -365,10 +432,11 @@ export default function CanvasOverlay({
           fill: ann.color,
           underline: ann.type === 'link',
         })
-        ;(text as fabric.FabricObject & { _annotationId?: string; _annotationType?: string })._annotationId = ann.id
-        ;(text as fabric.FabricObject & { _annotationType?: string })._annotationType = ann.type
+        const aObj = text as AnnotatedObject
+        aObj._annotationId = ann.id
+        aObj._annotationType = ann.type
         if (ann.type === 'link') {
-          ;(text as fabric.FabricObject & { _linkUrl?: string })._linkUrl = ann.url || ''
+          aObj._linkUrl = ann.url || ''
         }
         return text
       }
@@ -383,8 +451,9 @@ export default function CanvasOverlay({
     (obj: fabric.FabricObject): CanvasAnnotation | null => {
       if (!viewer.viewport) return null
 
-      const id = (obj as fabric.FabricObject & { _annotationId?: string })._annotationId || uid()
-      const type = (obj as fabric.FabricObject & { _annotationType?: string })._annotationType as CanvasAnnotation['type'] || 'rect'
+      const aObj = obj as AnnotatedObject
+      const id = aObj._annotationId || uid()
+      const type = (aObj._annotationType as CanvasAnnotation['type']) || 'rect'
 
       if (type === 'arrow' && obj instanceof fabric.Line) {
         const coords = obj.calcLinePoints()
@@ -402,12 +471,12 @@ export default function CanvasOverlay({
           vpHeight: 0,
           vpX2: vpEnd.x,
           vpY2: vpEnd.y,
-          color: (obj.stroke as string) || '#FF0000',
+          color: (obj.stroke as string) || '#000000',
           strokeWidth: (obj.strokeWidth ?? 2) / viewer.viewport.getZoom(),
+          arrowStyle: aObj._arrowStyle ?? 'standard',
         }
       }
 
-      // Get the bounding rect considering transforms
       const bound = obj.getBoundingRect()
       const vpTopLeft = viewer.viewport.pointFromPixel(
         new OpenSeadragon.Point(bound.left, bound.top),
@@ -423,17 +492,21 @@ export default function CanvasOverlay({
         vpY: vpTopLeft.y,
         vpWidth: vpBottomRight.x - vpTopLeft.x,
         vpHeight: vpBottomRight.y - vpTopLeft.y,
-        color: (obj.stroke as string) || (obj.fill as string) || '#FF0000',
+        color: (obj.stroke as string) || (obj.fill as string) || '#000000',
         strokeWidth: (obj.strokeWidth ?? 2) / viewer.viewport.getZoom(),
+      }
+
+      if (type === 'rect' || type === 'circle') {
+        base.filled = aObj._filled ?? false
       }
 
       if (type === 'text' || type === 'link') {
         const textObj = obj as fabric.IText
         base.text = textObj.text || ''
-        base.color = (textObj.fill as string) || '#FF0000'
+        base.color = (textObj.fill as string) || '#000000'
         base.vpFontSize = (textObj.fontSize ?? 16) / viewer.viewport.getZoom()
         if (type === 'link') {
-          base.url = (obj as fabric.FabricObject & { _linkUrl?: string })._linkUrl || ''
+          base.url = aObj._linkUrl || ''
         }
       }
 
@@ -442,23 +515,28 @@ export default function CanvasOverlay({
     [viewer],
   )
 
-  /** Collect all fabric objects → annotations and emit change */
+  /** Collect all fabric objects and emit change */
   const emitAnnotations = useCallback(() => {
     const fc = fabricCanvasRef.current
     if (!fc) return
+    // Exit any active IText editing before collecting, so text content is committed
+    const active = fc.getActiveObject()
+    if (active && active instanceof fabric.IText && active.isEditing) {
+      active.exitEditing()
+    }
     const objs = fc.getObjects()
     const result: CanvasAnnotation[] = []
     for (const obj of objs) {
       const ann = fabricToAnnotation(obj)
       if (ann) result.push(ann)
     }
+    console.debug(LOG_PREFIX, 'emitAnnotations:', result.length, 'objects')
     onAnnotationsChange(result)
   }, [fabricToAnnotation, onAnnotationsChange])
 
   // Initialize / teardown fabric canvas when entering/exiting edit mode
   useEffect(() => {
     if (!editMode) {
-      // Teardown
       if (fabricCanvasRef.current) {
         fabricCanvasRef.current.dispose()
         fabricCanvasRef.current = null
@@ -466,7 +544,8 @@ export default function CanvasOverlay({
       return
     }
 
-    // Setup fabric canvas
+    console.debug(LOG_PREFIX, 'entering edit mode, annotations:', annotationsRef.current.length)
+
     const container = viewer.container
     const w = container.clientWidth
     const h = container.clientHeight
@@ -483,22 +562,37 @@ export default function CanvasOverlay({
     })
     fabricCanvasRef.current = fc
 
-    // Load existing annotations as fabric objects
     for (const ann of annotationsRef.current) {
       const obj = annotationToFabric(ann)
       if (obj) fc.add(obj)
     }
     fc.renderAll()
 
-    // Listen for delete keystrokes
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        console.debug(LOG_PREFIX, 'Escape pressed')
+        if (isDrawingRef.current && drawObjRef.current) {
+          fc.remove(drawObjRef.current)
+          isDrawingRef.current = false
+          drawStartRef.current = null
+          drawObjRef.current = null
+          fc.renderAll()
+        }
+        const activeObj = fc.getActiveObject()
+        if (activeObj && activeObj instanceof fabric.IText && activeObj.isEditing) {
+          activeObj.exitEditing()
+          fc.renderAll()
+        }
+        fc.discardActiveObject()
+        fc.renderAll()
+        return
+      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Don't intercept keystrokes when an IText is in editing mode
         const activeObj = fc.getActiveObject()
         if (activeObj && activeObj instanceof fabric.IText && activeObj.isEditing) return
-        const active = fc.getActiveObjects()
-        if (active.length > 0) {
-          for (const obj of active) {
+        const activeObjs = fc.getActiveObjects()
+        if (activeObjs.length > 0) {
+          for (const obj of activeObjs) {
             fc.remove(obj)
           }
           fc.discardActiveObject()
@@ -509,23 +603,29 @@ export default function CanvasOverlay({
     }
     document.addEventListener('keydown', handleKeyDown)
 
+    // Emit after IText editing exits so text content is saved
+    const handleTextEditingExited = () => {
+      console.debug(LOG_PREFIX, 'text:editing:exited — emitting annotations')
+      emitAnnotations()
+    }
+    fc.on('text:editing:exited', handleTextEditingExited)
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      // Collect annotations before disposing
       if (fabricCanvasRef.current) {
+        fabricCanvasRef.current.off('text:editing:exited', handleTextEditingExited)
         fabricCanvasRef.current.dispose()
         fabricCanvasRef.current = null
       }
     }
   }, [editMode, viewer, annotationToFabric, emitAnnotations])
 
-  // ─── Drawing handlers for edit mode ───────────────────────────
+  // Drawing handlers for edit mode
 
   useEffect(() => {
     const fc = fabricCanvasRef.current
     if (!fc || !editMode) return
 
-    // Update selection mode based on tool
     fc.selection = activeTool === 'select'
     fc.forEachObject((obj) => {
       obj.selectable = activeTool === 'select'
@@ -534,7 +634,6 @@ export default function CanvasOverlay({
     fc.renderAll()
 
     if (activeTool === 'select') {
-      // Re-enable default fabric behavior
       fc.defaultCursor = 'default'
       fc.hoverCursor = 'move'
       return
@@ -544,43 +643,50 @@ export default function CanvasOverlay({
     fc.hoverCursor = 'crosshair'
 
     const handleMouseDown = (opt: fabric.TEvent<fabric.TPointerEvent>) => {
-      if (activeTool === 'text' || activeTool === 'link') return // handled separately
+      if (activeTool === 'text' || activeTool === 'link') return
+      console.debug(LOG_PREFIX, 'mouse:down tool=', activeTool)
       isDrawingRef.current = true
       const pointer = fc.getScenePoint(opt.e)
       drawStartRef.current = { x: pointer.x, y: pointer.y }
 
       if (activeTool === 'rect') {
+        const isFilled = activeFillMode === 'filled'
         const rect = new fabric.Rect({
           left: pointer.x,
           top: pointer.y,
           width: 0,
           height: 0,
-          fill: 'transparent',
+          fill: isFilled ? activeColor : 'transparent',
           stroke: activeColor,
-          strokeWidth: 2,
+          strokeWidth: activeLineWidth,
           strokeUniform: true,
           selectable: false,
           evented: false,
         })
-        ;(rect as fabric.FabricObject & { _annotationId?: string; _annotationType?: string })._annotationId = uid()
-        ;(rect as fabric.FabricObject & { _annotationType?: string })._annotationType = 'rect'
+        const aObj = rect as AnnotatedObject
+        aObj._annotationId = uid()
+        aObj._annotationType = 'rect'
+        aObj._filled = isFilled
         fc.add(rect)
         drawObjRef.current = rect
       } else if (activeTool === 'circle') {
+        const isFilled = activeFillMode === 'filled'
         const ellipse = new fabric.Ellipse({
           left: pointer.x,
           top: pointer.y,
           rx: 0,
           ry: 0,
-          fill: 'transparent',
+          fill: isFilled ? activeColor : 'transparent',
           stroke: activeColor,
-          strokeWidth: 2,
+          strokeWidth: activeLineWidth,
           strokeUniform: true,
           selectable: false,
           evented: false,
         })
-        ;(ellipse as fabric.FabricObject & { _annotationId?: string; _annotationType?: string })._annotationId = uid()
-        ;(ellipse as fabric.FabricObject & { _annotationType?: string })._annotationType = 'circle'
+        const aObj = ellipse as AnnotatedObject
+        aObj._annotationId = uid()
+        aObj._annotationType = 'circle'
+        aObj._filled = isFilled
         fc.add(ellipse)
         drawObjRef.current = ellipse
       } else if (activeTool === 'arrow') {
@@ -588,13 +694,15 @@ export default function CanvasOverlay({
           [pointer.x, pointer.y, pointer.x, pointer.y],
           {
             stroke: activeColor,
-            strokeWidth: 2,
+            strokeWidth: activeLineWidth,
             selectable: false,
             evented: false,
           },
         )
-        ;(line as fabric.FabricObject & { _annotationId?: string; _annotationType?: string })._annotationId = uid()
-        ;(line as fabric.FabricObject & { _annotationType?: string })._annotationType = 'arrow'
+        const aObj = line as AnnotatedObject
+        aObj._annotationId = uid()
+        aObj._annotationType = 'arrow'
+        aObj._arrowStyle = activeArrowStyle
         fc.add(line)
         drawObjRef.current = line
       }
@@ -633,6 +741,7 @@ export default function CanvasOverlay({
 
     const handleMouseUp = () => {
       if (!isDrawingRef.current) return
+      console.debug(LOG_PREFIX, 'mouse:up — finishing draw')
       isDrawingRef.current = false
       const obj = drawObjRef.current
       if (obj) {
@@ -642,7 +751,6 @@ export default function CanvasOverlay({
       drawStartRef.current = null
       drawObjRef.current = null
       emitAnnotations()
-      // Switch back to select tool after drawing
       setActiveTool('select')
     }
 
@@ -655,20 +763,23 @@ export default function CanvasOverlay({
       fc.off('mouse:move', handleMouseMove)
       fc.off('mouse:up', handleMouseUp)
     }
-  }, [editMode, activeTool, activeColor, emitAnnotations])
+  }, [editMode, activeTool, activeColor, activeLineWidth, activeArrowStyle, activeFillMode, emitAnnotations])
 
   // Emit on object modified (move/resize)
   useEffect(() => {
     const fc = fabricCanvasRef.current
     if (!fc || !editMode) return
-    const handler = () => emitAnnotations()
+    const handler = () => {
+      console.debug(LOG_PREFIX, 'object:modified — emitting')
+      emitAnnotations()
+    }
     fc.on('object:modified', handler)
     return () => {
       fc.off('object:modified', handler)
     }
   }, [editMode, emitAnnotations])
 
-  // ─── Tool actions ─────────────────────────────────────────────
+  // Tool actions
 
   const handleAddText = useCallback(() => {
     const fc = fabricCanvasRef.current
@@ -681,8 +792,9 @@ export default function CanvasOverlay({
       fontSize: 60,
       fill: activeColor,
     })
-    ;(text as fabric.FabricObject & { _annotationId?: string; _annotationType?: string })._annotationId = uid()
-    ;(text as fabric.FabricObject & { _annotationType?: string })._annotationType = 'text'
+    const aObj = text as AnnotatedObject
+    aObj._annotationId = uid()
+    aObj._annotationType = 'text'
     fc.add(text)
     fc.setActiveObject(text)
     fc.renderAll()
@@ -709,9 +821,10 @@ export default function CanvasOverlay({
       fill: activeColor,
       underline: true,
     })
-    ;(text as fabric.FabricObject & { _annotationId?: string; _annotationType?: string })._annotationId = uid()
-    ;(text as fabric.FabricObject & { _annotationType?: string })._annotationType = 'link'
-    ;(text as fabric.FabricObject & { _linkUrl?: string })._linkUrl = linkUrl
+    const aObj = text as AnnotatedObject
+    aObj._annotationId = uid()
+    aObj._annotationType = 'link'
+    aObj._linkUrl = linkUrl
     fc.add(text)
     fc.setActiveObject(text)
     fc.renderAll()
@@ -723,6 +836,7 @@ export default function CanvasOverlay({
     const fc = fabricCanvasRef.current
     if (!fc) return
     const active = fc.getActiveObjects()
+    console.debug(LOG_PREFIX, 'deleteSelected:', active.length, 'objects')
     for (const obj of active) {
       fc.remove(obj)
     }
@@ -740,6 +854,7 @@ export default function CanvasOverlay({
   }, [onAnnotationsChange])
 
   const handleDone = useCallback(() => {
+    console.debug(LOG_PREFIX, 'handleDone — emitting and exiting edit mode')
     emitAnnotations()
     onEditModeChange(false)
   }, [emitAnnotations, onEditModeChange])
@@ -752,9 +867,9 @@ export default function CanvasOverlay({
     if (!fc) return
     const active = fc.getActiveObjects()
     if (active.length === 0) return
+    console.debug(LOG_PREFIX, 'colorChange applied to', active.length, 'objects')
     for (const obj of active) {
       if (obj instanceof fabric.IText) {
-        // If text is partially selected, change only the selection color
         if (obj.isEditing && obj.selectionStart !== obj.selectionEnd) {
           obj.setSelectionStyles({ fill: color })
         } else {
@@ -762,18 +877,40 @@ export default function CanvasOverlay({
         }
       } else {
         obj.set('stroke', color)
+        const aObj = obj as AnnotatedObject
+        if (aObj._filled) {
+          obj.set('fill', color)
+        }
       }
     }
     fc.renderAll()
     emitAnnotations()
   }, [emitAnnotations])
 
-  // Don't render anything if no annotations and not in edit mode
+  /** Change line width and apply to any selected fabric objects (not text/link) */
+  const handleLineWidthChange = useCallback((width: number) => {
+    setActiveLineWidth(width)
+    setLineWidthAnchor(null)
+    const fc = fabricCanvasRef.current
+    if (!fc) return
+    const active = fc.getActiveObjects()
+    if (active.length === 0) return
+    console.debug(LOG_PREFIX, 'lineWidthChange applied to', active.length, 'objects, width=', width)
+    for (const obj of active) {
+      const aObj = obj as AnnotatedObject
+      const t = aObj._annotationType
+      if (t === 'text' || t === 'link') continue
+      obj.set('strokeWidth', width)
+    }
+    fc.renderAll()
+    emitAnnotations()
+  }, [emitAnnotations])
+
   if (!editMode && annotations.length === 0) return null
 
   return (
     <>
-      {/* View-mode canvas (static rendering, pointer-events: none) */}
+      {/* View-mode canvas */}
       {!editMode && (
         <Box
           sx={{
@@ -790,9 +927,7 @@ export default function CanvasOverlay({
             ref={viewCanvasRef}
             style={{ width: '100%', height: '100%', display: 'block' }}
           />
-          {/* Clickable link overlays */}
           {linkBoxes.map((lb) => {
-            // Only allow http/https URLs to prevent javascript: XSS
             if (!/^https?:\/\//i.test(lb.url)) return null
             return (
               <a
@@ -851,10 +986,10 @@ export default function CanvasOverlay({
             py: 0.5,
           }}
         >
-          {/* Rectangle */}
+          {/* Rectangle with fill-mode submenu */}
           <Tooltip title="Rectangle">
             <IconButton
-              onClick={() => setActiveTool('rect')}
+              onClick={(e) => setRectAnchor(rectAnchor ? null : e.currentTarget)}
               sx={{
                 color: activeTool === 'rect' ? '#90caf9' : 'white',
                 bgcolor: activeTool === 'rect' ? 'rgba(255,255,255,0.15)' : 'transparent',
@@ -864,11 +999,36 @@ export default function CanvasOverlay({
               <CropSquareIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
+          <Popover
+            open={Boolean(rectAnchor)}
+            anchorEl={rectAnchor}
+            onClose={() => setRectAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+            slotProps={{ paper: { sx: { bgcolor: 'rgba(0,0,0,0.85)', borderRadius: 1, p: 0.5, mt: 0.5 } } }}
+          >
+            <Tooltip title="Outlined Rectangle" placement="right">
+              <IconButton
+                onClick={() => { setActiveFillMode('outlined'); setActiveTool('rect'); setRectAnchor(null) }}
+                sx={{ color: activeFillMode === 'outlined' ? '#90caf9' : 'white', display: 'block' }}
+              >
+                <CropSquareIcon sx={{ fontSize: 24 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Filled Rectangle" placement="right">
+              <IconButton
+                onClick={() => { setActiveFillMode('filled'); setActiveTool('rect'); setRectAnchor(null) }}
+                sx={{ color: activeFillMode === 'filled' ? '#90caf9' : 'white', display: 'block' }}
+              >
+                <Box sx={{ width: 20, height: 20, bgcolor: 'currentColor', borderRadius: '2px' }} />
+              </IconButton>
+            </Tooltip>
+          </Popover>
 
-          {/* Circle */}
+          {/* Circle with fill-mode submenu */}
           <Tooltip title="Circle / Ellipse">
             <IconButton
-              onClick={() => setActiveTool('circle')}
+              onClick={(e) => setCircleAnchor(circleAnchor ? null : e.currentTarget)}
               sx={{
                 color: activeTool === 'circle' ? '#90caf9' : 'white',
                 bgcolor: activeTool === 'circle' ? 'rgba(255,255,255,0.15)' : 'transparent',
@@ -878,11 +1038,36 @@ export default function CanvasOverlay({
               <CircleOutlinedIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
+          <Popover
+            open={Boolean(circleAnchor)}
+            anchorEl={circleAnchor}
+            onClose={() => setCircleAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+            slotProps={{ paper: { sx: { bgcolor: 'rgba(0,0,0,0.85)', borderRadius: 1, p: 0.5, mt: 0.5 } } }}
+          >
+            <Tooltip title="Outlined Circle" placement="right">
+              <IconButton
+                onClick={() => { setActiveFillMode('outlined'); setActiveTool('circle'); setCircleAnchor(null) }}
+                sx={{ color: activeFillMode === 'outlined' ? '#90caf9' : 'white', display: 'block' }}
+              >
+                <CircleOutlinedIcon sx={{ fontSize: 24 }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Filled Circle" placement="right">
+              <IconButton
+                onClick={() => { setActiveFillMode('filled'); setActiveTool('circle'); setCircleAnchor(null) }}
+                sx={{ color: activeFillMode === 'filled' ? '#90caf9' : 'white', display: 'block' }}
+              >
+                <Box sx={{ width: 20, height: 20, bgcolor: 'currentColor', borderRadius: '50%' }} />
+              </IconButton>
+            </Tooltip>
+          </Popover>
 
-          {/* Arrow */}
-          <Tooltip title="Arrow">
+          {/* Arrow with arrowhead style submenu */}
+          <Tooltip title="Arrow / Line">
             <IconButton
-              onClick={() => setActiveTool('arrow')}
+              onClick={(e) => setArrowAnchor(arrowAnchor ? null : e.currentTarget)}
               sx={{
                 color: activeTool === 'arrow' ? '#90caf9' : 'white',
                 bgcolor: activeTool === 'arrow' ? 'rgba(255,255,255,0.15)' : 'transparent',
@@ -892,6 +1077,58 @@ export default function CanvasOverlay({
               <ArrowForwardIcon sx={{ fontSize: 28 }} />
             </IconButton>
           </Tooltip>
+          <Popover
+            open={Boolean(arrowAnchor)}
+            anchorEl={arrowAnchor}
+            onClose={() => setArrowAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+            slotProps={{ paper: { sx: { bgcolor: 'rgba(0,0,0,0.85)', borderRadius: 1, p: 0.5, mt: 0.5 } } }}
+          >
+            <Tooltip title="Plain Line (no arrowhead)" placement="right">
+              <IconButton
+                onClick={() => { setActiveArrowStyle('none'); setActiveTool('arrow'); setArrowAnchor(null) }}
+                sx={{ color: activeArrowStyle === 'none' ? '#90caf9' : 'white', display: 'block' }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24">
+                  <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="2" />
+                </svg>
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Standard Arrowhead" placement="right">
+              <IconButton
+                onClick={() => { setActiveArrowStyle('standard'); setActiveTool('arrow'); setArrowAnchor(null) }}
+                sx={{ color: activeArrowStyle === 'standard' ? '#90caf9' : 'white', display: 'block' }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24">
+                  <line x1="4" y1="12" x2="18" y2="12" stroke="currentColor" strokeWidth="2" />
+                  <polyline points="14,8 20,12 14,16" fill="none" stroke="currentColor" strokeWidth="2" />
+                </svg>
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Triangle Arrowhead" placement="right">
+              <IconButton
+                onClick={() => { setActiveArrowStyle('triangle'); setActiveTool('arrow'); setArrowAnchor(null) }}
+                sx={{ color: activeArrowStyle === 'triangle' ? '#90caf9' : 'white', display: 'block' }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24">
+                  <line x1="4" y1="12" x2="16" y2="12" stroke="currentColor" strokeWidth="2" />
+                  <polygon points="14,7 22,12 14,17" fill="currentColor" />
+                </svg>
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Circle Arrowhead" placement="right">
+              <IconButton
+                onClick={() => { setActiveArrowStyle('circle'); setActiveTool('arrow'); setArrowAnchor(null) }}
+                sx={{ color: activeArrowStyle === 'circle' ? '#90caf9' : 'white', display: 'block' }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24">
+                  <line x1="4" y1="12" x2="16" y2="12" stroke="currentColor" strokeWidth="2" />
+                  <circle cx="19" cy="12" r="4" fill="currentColor" />
+                </svg>
+              </IconButton>
+            </Tooltip>
+          </Popover>
 
           {/* Text */}
           <Tooltip title="Add Text">
@@ -921,7 +1158,66 @@ export default function CanvasOverlay({
 
           <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)' }} />
 
-          {/* Color picker toggle — multicolor icon expands vertical popover */}
+          {/* Line thickness */}
+          <Tooltip title="Line Thickness">
+            <IconButton
+              onClick={(e) => setLineWidthAnchor(lineWidthAnchor ? null : e.currentTarget)}
+              sx={{ color: 'white', p: 0.75 }}
+            >
+              <LineWeightIcon sx={{ fontSize: 28 }} />
+            </IconButton>
+          </Tooltip>
+          <Popover
+            open={Boolean(lineWidthAnchor)}
+            anchorEl={lineWidthAnchor}
+            onClose={() => setLineWidthAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+            slotProps={{
+              paper: {
+                sx: {
+                  bgcolor: 'rgba(0,0,0,0.85)',
+                  borderRadius: 1,
+                  p: 0.75,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  alignItems: 'center',
+                  mt: 0.5,
+                },
+              },
+            }}
+          >
+            {LINE_WIDTHS.map((lw) => (
+              <Tooltip key={lw} title={`${lw}px`} placement="right">
+                <Box
+                  onClick={() => handleLineWidthChange(lw)}
+                  sx={{
+                    width: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    py: 0.5,
+                    cursor: 'pointer',
+                    borderRadius: 0.5,
+                    bgcolor: activeLineWidth === lw ? 'rgba(255,255,255,0.15)' : 'transparent',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 24,
+                      height: Math.max(2, lw),
+                      bgcolor: 'white',
+                      borderRadius: lw > 2 ? '1px' : 0,
+                    }}
+                  />
+                </Box>
+              </Tooltip>
+            ))}
+          </Popover>
+
+          {/* Color picker */}
           <Tooltip title="Color">
             <IconButton
               onClick={(e) => setColorPickerAnchor(colorPickerAnchor ? null : e.currentTarget)}
@@ -1016,7 +1312,7 @@ export default function CanvasOverlay({
             userSelect: 'none',
           }}
         >
-          Canvas Edit Mode — Image navigation disabled
+          Canvas Edit Mode — Image navigation disabled (Esc to deselect)
         </Typography>
       )}
 
