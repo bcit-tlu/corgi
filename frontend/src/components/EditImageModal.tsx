@@ -74,6 +74,18 @@ function EditImageForm({
   )
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [confirmViewImage, setConfirmViewImage] = useState(false)
+
+  // Track whether the form has been modified from its initial values
+  const isDirty =
+    name !== (image?.name ?? '') ||
+    categoryId !== (image?.category_id ?? null) ||
+    copyright !== (image?.copyright ?? '') ||
+    note !== (image?.note ?? '') ||
+    JSON.stringify(programIds) !== JSON.stringify(image?.program_ids ?? []) ||
+    active !== (image?.active ?? true) ||
+    measurementScale !== (meta?.measurement_scale != null ? String(meta.measurement_scale) : '') ||
+    measurementUnit !== (typeof meta?.measurement_unit === 'string' ? meta.measurement_unit : '')
 
   const handleDelete = async () => {
     if (!onDelete) return
@@ -135,7 +147,13 @@ function EditImageForm({
             size="small"
             variant="outlined"
             startIcon={<VisibilityIcon />}
-            onClick={onViewImage}
+            onClick={() => {
+              if (isDirty) {
+                setConfirmViewImage(true)
+              } else {
+                onViewImage()
+              }
+            }}
           >
             View Image
           </Button>
@@ -310,6 +328,30 @@ function EditImageForm({
           </>
         )}
       </DialogContent>
+      {confirmViewImage && (
+        <Box
+          sx={{
+            px: 3,
+            py: 1.5,
+            bgcolor: 'warning.light',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Typography variant="body2">
+            You have unsaved changes. Discard and view image?
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, ml: 2, flexShrink: 0 }}>
+            <Button size="small" onClick={() => setConfirmViewImage(false)}>
+              Cancel
+            </Button>
+            <Button size="small" variant="contained" color="warning" onClick={onViewImage}>
+              Discard &amp; View
+            </Button>
+          </Box>
+        </Box>
+      )}
       <DialogActions>
         <Button onClick={onClose} disabled={deleting}>Cancel</Button>
         <Button
