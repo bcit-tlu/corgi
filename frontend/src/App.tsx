@@ -169,6 +169,11 @@ export default function App() {
   // to avoid stale-version 409s when clearing overlays after locking
   // (lock intentionally does NOT update selectedImage to avoid viewer remount).
   const latestVersionRef = useRef<number>(0)
+  // Track the latest known metadata independently from selectedImage so that
+  // successive metadata-modifying operations (lock, canvas annotations, clear)
+  // don't clobber each other's fields.  Initialised from selectedImage and
+  // updated after every successful PATCH.
+  const latestMetadataRef = useRef<Record<string, unknown> | null>(null)
 
   // Report issue modal state
   const [reportIssueOpen, setReportIssueOpen] = useState(false)
@@ -602,6 +607,7 @@ export default function App() {
   // Reset version ref when a different image is selected
   useEffect(() => {
     latestVersionRef.current = selectedImage?.version ?? 0
+    latestMetadataRef.current = (selectedImage?.metadataExtra as Record<string, unknown> | undefined) ?? null
   }, [selectedImage])
 
   // Memoize initialOverlays: use locked overlays on initial load if no URL overlays
@@ -627,7 +633,7 @@ export default function App() {
   const handleCanvasAnnotationsChange = useCallback(async (annotations: CanvasAnnotation[]) => {
     if (!selectedImage) return
     try {
-      const meta = { ...(selectedImage.metadataExtra ?? {}) } as Record<string, unknown>
+      const meta = { ...(latestMetadataRef.current ?? selectedImage.metadataExtra ?? {}) } as Record<string, unknown>
       if (annotations.length > 0) {
         meta.canvas_annotations = annotations
       } else {
@@ -639,6 +645,7 @@ export default function App() {
         metadata_extra: updatedMeta as Record<string, unknown> | undefined,
       }, currentVersion)
       latestVersionRef.current = updated.version
+      latestMetadataRef.current = updatedMeta
       await loadCategories()
       loadUncategorizedImages()
     } catch (err) {
@@ -662,11 +669,12 @@ export default function App() {
   const handleLockOverlays = useCallback(async (rects: OverlayRect[]) => {
     if (!selectedImage) return
     try {
-      const meta = selectedImage.metadataExtra ?? {}
+      const meta = latestMetadataRef.current ?? selectedImage.metadataExtra ?? {}
       const updatedMeta = { ...meta, locked_overlays: rects }
       const currentVersion = latestVersionRef.current || selectedImage.version
       const updated = await apiUpdateImage(selectedImage.id, { metadata_extra: updatedMeta }, currentVersion)
       latestVersionRef.current = updated.version
+      latestMetadataRef.current = updatedMeta
       setLockEngaged(true)
       await loadCategories()
       loadUncategorizedImages()
@@ -688,7 +696,7 @@ export default function App() {
   const handleClearOverlays = useCallback(async () => {
     if (!selectedImage) return
     try {
-      const meta = { ...(selectedImage.metadataExtra ?? {}) } as Record<string, unknown>
+      const meta = { ...(latestMetadataRef.current ?? selectedImage.metadataExtra ?? {}) } as Record<string, unknown>
       delete meta.locked_overlays
       const updatedMeta = Object.keys(meta).length > 0 ? meta : null
       const currentVersion = latestVersionRef.current || selectedImage.version
@@ -696,6 +704,7 @@ export default function App() {
         metadata_extra: updatedMeta as Record<string, unknown> | undefined,
       }, currentVersion)
       latestVersionRef.current = updated.version
+      latestMetadataRef.current = updatedMeta
       await loadCategories()
       loadUncategorizedImages()
     } catch (err) {

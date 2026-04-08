@@ -491,6 +491,9 @@ export default function CanvasOverlay({
     // Listen for delete keystrokes
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Don't intercept keystrokes when an IText is in editing mode
+        const activeObj = fc.getActiveObject()
+        if (activeObj && activeObj instanceof fabric.IText && activeObj.isEditing) return
         const active = fc.getActiveObjects()
         if (active.length > 0) {
           for (const obj of active) {
