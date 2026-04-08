@@ -179,6 +179,9 @@ export default function App() {
   const canvasSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const canvasSaveInFlightRef = useRef(false)
   const pendingCanvasAnnotationsRef = useRef<CanvasAnnotation[] | null>(null)
+  // Track which image ID the current in-flight save targets so stale completions
+  // don't overwrite refs after an image change
+  const saveTargetImageIdRef = useRef<number | null>(null)
 
   // Report issue modal state
   const [reportIssueOpen, setReportIssueOpen] = useState(false)
@@ -624,6 +627,8 @@ export default function App() {
       canvasSaveTimerRef.current = null
     }
     pendingCanvasAnnotationsRef.current = null
+    canvasSaveInFlightRef.current = false
+    saveTargetImageIdRef.current = null
   }, [selectedImage])
 
   // Memoize initialOverlays: use locked overlays on initial load if no URL overlays
@@ -646,6 +651,8 @@ export default function App() {
   // Persist canvas annotations to server.  Called by the debounced handler below.
   const saveCanvasAnnotations = useCallback(async (annotations: CanvasAnnotation[]) => {
     if (!selectedImage) return
+    const targetImageId = selectedImage.id
+    saveTargetImageIdRef.current = targetImageId
     canvasSaveInFlightRef.current = true
     try {
       const base = latestMetadataRef.current === undefined
@@ -662,19 +669,24 @@ export default function App() {
       const updated = await apiUpdateImage(selectedImage.id, {
         metadata_extra: updatedMeta as Record<string, unknown> | undefined,
       }, currentVersion)
-      latestVersionRef.current = updated.version
-      latestMetadataRef.current = updatedMeta ?? {}
+      // Only update shared refs if the image hasn't changed while we were saving
+      if (saveTargetImageIdRef.current === targetImageId) {
+        latestVersionRef.current = updated.version
+        latestMetadataRef.current = updatedMeta ?? {}
+      }
       await loadCategories()
       loadUncategorizedImages()
     } catch (err) {
       console.error('Failed to save canvas annotations', err)
     } finally {
-      canvasSaveInFlightRef.current = false
-      // If another save was queued while we were in-flight, flush it now
-      if (pendingCanvasAnnotationsRef.current !== null) {
-        const queued = pendingCanvasAnnotationsRef.current
-        pendingCanvasAnnotationsRef.current = null
-        void saveCanvasAnnotations(queued)
+      // Only clear in-flight flag and flush queue if still targeting the same image
+      if (saveTargetImageIdRef.current === targetImageId) {
+        canvasSaveInFlightRef.current = false
+        if (pendingCanvasAnnotationsRef.current !== null) {
+          const queued = pendingCanvasAnnotationsRef.current
+          pendingCanvasAnnotationsRef.current = null
+          void saveCanvasAnnotations(queued)
+        }
       }
     }
   }, [selectedImage, loadCategories, loadUncategorizedImages])
