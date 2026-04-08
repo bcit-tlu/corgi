@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 from ..auth import verify_password, create_access_token, get_current_user
 from ..database import get_db
 from ..models import User
-from ..rate_limit import check_login_rate_limit
+from ..rate_limit import check_login_rate_limit, reset_login_rate_limit
 from ..schemas import UserOut
 
 logger = logging.getLogger(__name__)
@@ -86,6 +86,10 @@ async def login(
     user.last_access = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(user)
+
+    # Clear rate-limit counter on successful login so legitimate users
+    # (especially those behind a shared campus NAT IP) aren't locked out.
+    await reset_login_rate_limit(client_ip)
 
     logger.info(
         "Login successful",

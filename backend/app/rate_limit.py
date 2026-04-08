@@ -33,7 +33,11 @@ async def _get_redis() -> Redis | None:
         return None
     try:
         client = Redis.from_url(settings.redis_url, decode_responses=True)
-        await client.ping()
+        try:
+            await client.ping()
+        except Exception:
+            await client.aclose()
+            raise
         _redis = client
         _last_failure = 0.0
         return _redis
