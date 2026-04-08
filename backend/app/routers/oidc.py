@@ -197,7 +197,21 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
             },
         )
     else:
-        # Existing user — link OIDC subject if not yet linked and update fields
+        # Existing user — reject if already linked to a *different* OIDC identity
+        if user.oidc_subject and user.oidc_subject != sub:
+            logger.warning(
+                "OIDC subject mismatch for email-matched user",
+                extra={
+                    "event": "oidc.subject_mismatch",
+                    "email": email,
+                    "existing_sub": user.oidc_subject,
+                    "incoming_sub": sub,
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This email is already linked to a different identity",
+            )
         if not user.oidc_subject:
             user.oidc_subject = sub
         # Only update role from IdP when groups were actually provided;
