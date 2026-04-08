@@ -26,6 +26,12 @@ class AuthSettings(Settings):
 
 _auth_settings: AuthSettings | None = None
 
+# A random token generated once per process.  Embedded in every JWT as the
+# ``iss`` (issuer) claim so that tokens minted by a previous backend instance
+# are automatically rejected — even when a static ``JWT_SECRET`` is configured
+# and the database is recreated with the same user IDs.
+_instance_epoch: str = secrets.token_urlsafe(16)
+
 
 def _get_auth_settings() -> AuthSettings:
     """Return the singleton ``AuthSettings``, creating it on first call.
@@ -86,6 +92,7 @@ def create_access_token(user: User) -> str:
         "email": user.email,
         "role": user.role,
         "exp": expire,
+        "iss": _instance_epoch,
     }
     return jwt.encode(payload, auth_settings.jwt_secret, algorithm=auth_settings.jwt_algorithm)
 
@@ -105,6 +112,12 @@ async def _get_user_from_token(
         # Reject scoped tokens (e.g. file-export JWTs) from being used
         # as general-purpose Bearer tokens.
         if payload.get("purpose") is not None:
+            raise credentials_exception
+        # Reject tokens minted by a different backend instance.  This
+        # ensures that after a ``docker compose down -v`` cycle (which
+        # recreates the DB with the same seed user IDs), stale JWTs from
+        # the previous instance are not accepted.
+        if payload.get("iss") != _instance_epoch:
             raise credentials_exception
         user_id_str: str | None = payload.get("sub")
         if user_id_str is None:
