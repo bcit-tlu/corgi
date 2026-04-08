@@ -91,7 +91,8 @@ async def get_category_tree(
     response.headers["ETag"] = f'W/"{etag}"'
     response.headers["Cache-Control"] = "private, max-age=30"
 
-    if request.headers.get("if-none-match") == f'W/"{etag}"':
+    client_etags = request.headers.get("if-none-match", "")
+    if client_etags == "*" or f'W/"{etag}"' in [t.strip() for t in client_etags.split(",")]:
         return Response(status_code=304, headers={"ETag": f'W/"{etag}"', "Cache-Control": "private, max-age=30"})
 
     return tree
