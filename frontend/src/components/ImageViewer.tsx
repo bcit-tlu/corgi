@@ -55,6 +55,8 @@ interface ImageViewerProps {
   onCanvasAnnotationsChange?: (annotations: CanvasAnnotation[]) => void
   /** Flush any pending canvas annotation save immediately (bypass debounce) */
   onFlushCanvasAnnotations?: () => Promise<void>
+  /** Notified when canvas edit mode changes (so parent can disable conflicting UI) */
+  onCanvasEditModeChange?: (active: boolean) => void
 }
 
 interface DragState {
@@ -116,6 +118,7 @@ export default function ImageViewer({
   canvasAnnotations,
   onCanvasAnnotationsChange,
   onFlushCanvasAnnotations,
+  onCanvasEditModeChange,
 }: ImageViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<OpenSeadragon.Viewer | null>(null)
@@ -647,7 +650,8 @@ export default function ImageViewer({
     setCanvasEditMode(mode)
     viewerRef.current?.setMouseNavEnabled(!mode)
     updateCanvasEditUiRef.current?.(mode)
-  }, [])
+    onCanvasEditModeChange?.(mode)
+  }, [onCanvasEditModeChange])
 
   return (
     <Box

@@ -225,6 +225,8 @@ export default function App() {
 
   // Image edit modal state (for viewer page)
   const [imageEditOpen, setImageEditOpen] = useState(false)
+  // Canvas edit mode — tracked here so we can disable conflicting UI (e.g. Edit Details)
+  const [canvasEditActive, setCanvasEditActive] = useState(false)
 
   // Image edit modal state (for browse-view ellipsis icon)
   const [browseEditImage, setBrowseEditImage] = useState<ImageItem | null>(null)
@@ -1355,13 +1357,18 @@ export default function App() {
                 </MuiBreadcrumbs>
                 <Box sx={{ display: 'flex', gap: 2, flexShrink: 0 }}>
                   {canEditContent && (
-                    <Button
-                      variant="contained"
-                      startIcon={<EditIcon />}
-                      onClick={() => setImageEditOpen(true)}
-                    >
-                      Edit Details
-                    </Button>
+                    <Tooltip title={canvasEditActive ? 'Exit canvas edit mode first' : ''}>
+                      <span>
+                        <Button
+                          variant="contained"
+                          startIcon={<EditIcon />}
+                          onClick={() => setImageEditOpen(true)}
+                          disabled={canvasEditActive}
+                        >
+                          Edit Details
+                        </Button>
+                      </span>
+                    </Tooltip>
                   )}
                   <Tooltip title="Copy shareable link to clipboard">
                     <Button
@@ -1391,6 +1398,7 @@ export default function App() {
                   canvasAnnotations={localCanvasAnnotations ?? canvasAnnotations}
                   onCanvasAnnotationsChange={handleCanvasAnnotationsChange}
                   onFlushCanvasAnnotations={flushCanvasAnnotations}
+                  onCanvasEditModeChange={setCanvasEditActive}
                 />
               </Paper>
 
