@@ -14,6 +14,11 @@ Wait for all containers to be healthy before testing:
 docker compose ps
 ```
 
+After code changes, rebuild with:
+```bash
+docker compose up -d --build frontend  # or backend
+```
+
 ## Seed User Credentials
 
 All seed users share the password: `password`
@@ -31,10 +36,20 @@ Use `admin@bcit.ca` for full access to all features (Images tab, Manage menu, Ad
 - **Images tab**: Click "IMAGES" in the top nav bar. Requires `admin` or `instructor` role (`canEditContent`).
   - **Add Image modal**: Click "ADD IMAGE" button (top right of Images page)
   - **Bulk Import modal**: Click "BULK IMPORT" button (top right of Images page)
-  - **Edit Details modal**: Click the 3-dot menu (Actions column) on any image row → "Details"
-- **Manage menu**: Click "MANAGE" tab → dropdown with Categories, Programs, Announcements
+  - **Edit Details modal**: Click the 3-dot menu (Actions column) on any image row -> "Details"
+- **Manage menu**: Click "MANAGE" tab -> dropdown with Categories, Programs, Announcements
 - **Admin tab**: Click "ADMIN" in the top nav. Requires `admin` role.
 - **People tab**: Click "PEOPLE" in the top nav. Requires `admin` role.
+- **Profile dropdown**: Click the avatar (initials) at top-right -> shows Update and Logout buttons
+
+## Image Viewer Toolbar
+
+When viewing an image, the bottom-left toolbar contains (left to right):
+- Zoom in / Zoom out / Home / Toggle full page
+- Rotate left / Rotate right
+- Draw selection rectangle (creates red overlay rectangles with measurement labels)
+- Lock overlays (padlock icon - persists overlays to image metadata)
+- Clear all selection rectangles (X icon - disabled when overlays are locked)
 
 ## File Uploads in Testing
 
@@ -80,12 +95,21 @@ img.save('/tmp/test_image.png')
 
 ## Key Testing Flows
 
-1. **Image Upload (Add Image)**: Login → Images tab → ADD IMAGE → select file → fill Name, Category, Copyright, Note, Program, Active → ADD
-2. **Bulk Import**: Login → Images tab → BULK IMPORT → select files → pick Target Category + metadata → IMPORT N FILES → wait for job completion → DONE
-3. **Edit Image Details**: Images tab → 3-dot menu → Details → verify/modify fields → SAVE
-4. **Category Management**: Manage menu → Categories
+1. **Image Upload (Add Image)**: Login -> Images tab -> ADD IMAGE -> select file (via Playwright) -> fill Name, Category, Copyright, Note, Program, Active -> ADD
+2. **Bulk Import**: Login -> Images tab -> BULK IMPORT -> select files (via Playwright) -> pick Category + metadata -> IMPORT N FILES -> wait for job completion -> DONE
+3. **Edit Image Details**: Images tab -> right-click image row -> Details -> verify/modify fields -> SAVE
+4. **Category Management**: Both Add Image and Bulk Import modals have inline category management (add/edit/toggle visibility) via icons in the Category dropdown. The "None (root level)" row has a "+" button for adding root-level categories.
 5. **User Management**: People tab (admin only)
+
+## Important Notes
+
+- The session/auth may expire after `docker compose up --build` rebuilds containers. You'll need to log in again.
+- The CategoryPickerSelect component is shared across Add Image, Bulk Import, and Move modals. Changes to it affect all three.
+- `wmctrl` may need to be installed for maximizing browser windows: `sudo apt-get install -y wmctrl`
+- **Snackbars**: Processing indicators are rendered at the App root level (`App.tsx`), so they persist across all page/tab switches
+- **Auto-refresh**: On processing completion, `loadCategories()` and `loadUncategorizedImages()` are called automatically
+- **Logout button**: Use `page.get_by_role("button", name="Logout", exact=True)` to avoid matching image names that may contain "Logout" text
 
 ## Devin Secrets Needed
 
-No secrets required for local testing — all credentials are in the seed data.
+No secrets required for local testing -- all credentials are in the seed data.
