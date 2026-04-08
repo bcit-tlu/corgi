@@ -247,8 +247,6 @@ export default function BulkImportModal({
                 categories={categories}
                 value={categoryId}
                 onChange={setCategoryId}
-                label="Target Category"
-                includeRoot={false}
                 onAddCategory={onAddCategory}
                 onEditCategory={onEditCategory}
                 onToggleVisibility={onToggleVisibility}
