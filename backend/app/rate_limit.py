@@ -105,4 +105,10 @@ async def reset_login_rate_limit(client_ip: str, email: str) -> None:
     """Clear rate-limit state for *client_ip* + *email* after a successful login."""
     redis = await _get_redis()
     if redis is not None:
-        await redis.delete(f"rate:login:{client_ip}:{email}")
+        try:
+            await redis.delete(f"rate:login:{client_ip}:{email}")
+        except Exception:
+            logger.warning(
+                "Redis operation failed — rate-limit reset skipped",
+                extra={"event": "rate_limit.reset_error"},
+            )
