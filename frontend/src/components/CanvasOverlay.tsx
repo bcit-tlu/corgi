@@ -539,7 +539,6 @@ export default function CanvasOverlay({
     fc.hoverCursor = 'crosshair'
 
     const handleMouseDown = (opt: fabric.TEvent<fabric.TPointerEvent>) => {
-      if (activeTool === 'select') return
       if (activeTool === 'text' || activeTool === 'link') return // handled separately
       isDrawingRef.current = true
       const pointer = fc.getScenePoint(opt.e)
