@@ -50,7 +50,8 @@ def _get_auth_settings() -> AuthSettings:
         # are automatically invalidated.  An explicit ``JWT_SECRET`` env-var
         # still takes precedence for production deployments that need stable
         # tokens.
-        if not _auth_settings.jwt_secret:
+        explicit_secret = bool(_auth_settings.jwt_secret)
+        if not explicit_secret:
             _auth_settings.jwt_secret = secrets.token_urlsafe(32)
             logger.warning(
                 "No JWT_SECRET configured — using an ephemeral random secret. "
@@ -61,7 +62,7 @@ def _get_auth_settings() -> AuthSettings:
             )
         if not _auth_settings.jwt_instance_epoch:
             _auth_settings.jwt_instance_epoch = secrets.token_urlsafe(16)
-            if _auth_settings.jwt_secret:
+            if explicit_secret:
                 logger.warning(
                     "No JWT_INSTANCE_EPOCH configured — using an ephemeral random epoch. "
                     "Sessions will not survive restarts even though JWT_SECRET is set. "
