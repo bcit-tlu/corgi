@@ -107,7 +107,7 @@ export default function LoginScreen({
                             sx={{ height: 48 }}
                         />
                         <Typography variant="h5" sx={{ fontWeight: 400 }}>
-                            High Resolution Image Viewer Login
+                            High Resolution Image Viewer (HRIV) Login
                         </Typography>
                     </Box>
 
@@ -222,9 +222,7 @@ export default function LoginScreen({
                                 <Button
                                     type="button"
                                     variant="text"
-                                    onClick={() =>
-                                        setForgotPasswordOpen(true)
-                                    }
+                                    onClick={() => setForgotPasswordOpen(true)}
                                     sx={{
                                         px: 0,
                                         fontWeight: 600,
@@ -259,9 +257,7 @@ export default function LoginScreen({
                                         type="button"
                                         variant="body2"
                                         underline="hover"
-                                        onClick={() =>
-                                            setShowLocalForm(false)
-                                        }
+                                        onClick={() => setShowLocalForm(false)}
                                     >
                                         Sign in with BCIT
                                     </Link>
