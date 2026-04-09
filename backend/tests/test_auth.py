@@ -31,7 +31,7 @@ def test_create_access_token_contains_expected_claims(
     assert payload["email"] == "user@example.com"
     assert payload["role"] == "admin"
     assert "exp" in payload
-    assert payload["iss"] == auth.auth_settings.jwt_instance_epoch
+    assert payload["_epoch"] == auth.auth_settings.jwt_instance_epoch
 
 
 async def test_get_user_from_token_returns_user(
@@ -42,7 +42,7 @@ async def test_get_user_from_token_returns_user(
 
     user = SimpleNamespace(id=42, email="person@example.com", role="student")
     token = auth.jwt.encode(
-        {"sub": "42", "email": "person@example.com", "role": "student", "iss": auth.auth_settings.jwt_instance_epoch},
+        {"sub": "42", "email": "person@example.com", "role": "student", "_epoch": auth.auth_settings.jwt_instance_epoch},
         "unit-test-secret",
         algorithm="HS256",
     )
@@ -68,6 +68,7 @@ async def test_get_user_from_token_rejects_scoped_tokens(
             "email": "person@example.com",
             "role": "admin",
             "purpose": "file-export",
+            "_epoch": auth.auth_settings.jwt_instance_epoch,
         },
         "unit-test-secret",
         algorithm="HS256",
@@ -89,7 +90,7 @@ async def test_get_user_from_token_rejects_missing_user(
     monkeypatch.setattr(auth.auth_settings, "jwt_algorithm", "HS256")
 
     token = auth.jwt.encode(
-        {"sub": "999", "email": "missing@example.com", "role": "student", "iss": auth.auth_settings.jwt_instance_epoch},
+        {"sub": "999", "email": "missing@example.com", "role": "student", "_epoch": auth.auth_settings.jwt_instance_epoch},
         "unit-test-secret",
         algorithm="HS256",
     )
@@ -111,7 +112,7 @@ async def test_get_user_from_token_rejects_stale_instance_epoch(
     monkeypatch.setattr(auth.auth_settings, "jwt_algorithm", "HS256")
 
     token = auth.jwt.encode(
-        {"sub": "1", "email": "a@b.com", "role": "admin", "iss": "old-epoch"},
+        {"sub": "1", "email": "a@b.com", "role": "admin", "_epoch": "old-epoch"},
         "unit-test-secret",
         algorithm="HS256",
     )

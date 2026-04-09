@@ -22,13 +22,13 @@ class AuthSettings(Settings):
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 1440  # 24 hours
-    # Per-instance epoch embedded in JWTs as the ``iss`` claim.  When left
-    # empty a random value is generated at startup, which automatically
-    # invalidates tokens from a previous container instance (e.g. after
-    # ``docker compose down -v``).  For multi-worker / multi-replica
-    # production deployments set this to a shared value so all workers
-    # accept each other's tokens; rotate the value when you want to force
-    # all users to re-authenticate.
+    # Per-instance epoch embedded in JWTs as a private ``_epoch`` claim.
+    # When left empty a random value is generated at startup, which
+    # automatically invalidates tokens from a previous container instance
+    # (e.g. after ``docker compose down -v``).  For multi-worker /
+    # multi-replica production deployments set this to a shared value so
+    # all workers accept each other's tokens; rotate the value when you
+    # want to force all users to re-authenticate.
     jwt_instance_epoch: str = ""
 
 
@@ -96,7 +96,7 @@ def create_access_token(user: User) -> str:
         "email": user.email,
         "role": user.role,
         "exp": expire,
-        "iss": auth_settings.jwt_instance_epoch,
+        "_epoch": auth_settings.jwt_instance_epoch,
     }
     return jwt.encode(payload, auth_settings.jwt_secret, algorithm=auth_settings.jwt_algorithm)
 
@@ -121,7 +121,7 @@ async def _get_user_from_token(
         # ensures that after a ``docker compose down -v`` cycle (which
         # recreates the DB with the same seed user IDs), stale JWTs from
         # the previous instance are not accepted.
-        if payload.get("iss") != auth_settings.jwt_instance_epoch:
+        if payload.get("_epoch") != auth_settings.jwt_instance_epoch:
             raise credentials_exception
         user_id_str: str | None = payload.get("sub")
         if user_id_str is None:
