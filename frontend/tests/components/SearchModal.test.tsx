@@ -111,8 +111,10 @@ describe('SearchModal', () => {
 
     // The query should persist, and the Images chip should still be selected (filled variant)
     expect(screen.getByPlaceholderText('Search categories, images, programs, people')).toHaveValue('Liver')
-    // The Images chip should still be rendered (filters persist because query persists)
-    expect(screen.getByText('Images')).toBeInTheDocument()
+    // The Images chip should still be in the selected (filled) state, not just present
+    const imagesChipAfterReopen = screen.getByText('Images').closest('[class*="MuiChip-root"]')!
+    expect(imagesChipAfterReopen.className).toMatch(/MuiChip-filled/)
+    expect(imagesChipAfterReopen.className).not.toMatch(/MuiChip-outlined/)
   })
 
   it('displays search results for a matching query', async () => {
